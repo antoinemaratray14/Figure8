@@ -41,7 +41,6 @@ def fetch_events_from_statsbomb(match_id):
     else:
         raise ValueError(f"Failed to fetch events for match {match_id}, status code: {response.status_code}")
 
-
 @st.cache_data
 def load_data():
     # Your Google Cloud Storage bucket name (if still needed)
@@ -77,7 +76,6 @@ def load_data():
                 match_id = match_info['statsbomb_id'].values[0]
                 sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
         else:
-            download_file_from_gcs(bucket_name, file_name, file_name)
             if file_name.endswith('.csv'):
                 if key == "consolidated_matches":
                     consolidated_matches = pd.read_csv(file_name)
@@ -92,6 +90,7 @@ def load_data():
                         wyscout_physical_data = json.load(f)
 
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
