@@ -529,13 +529,16 @@ st.title("Figure 8: Post-Match Dashboard")
 # Load Data
 consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscout_data = load_data()
 
-# Sidebar Inputs with unique keys
-home_team_key = "home_team_select_unique_1"
-away_team_key = "away_team_select_unique_1"
-player_select_key = "player_select_unique_1"
+# Sidebar Inputs - We define these here, so we can use them later to dynamically create keys
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
 
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
+# Dynamically create keys after selecting the teams
+home_team_key = f"home_team_select_{home_team}" 
+away_team_key = f"away_team_select_{away_team}" 
+player_select_key = f"player_select_{home_team}_{away_team}"  # Use both teams for player selection key
+
+# Now, create the player selection dropdown
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -564,14 +567,10 @@ else:
         st.error(f"No season stats found for player: {player}")
         st.stop()
 
-
     # Define filtered_events based on the selected player and match
     filtered_events = events_df[events_df['player_name'] == player]
-    print(filtered_events.columns)
 
-    
     # Generate and display the player's match dashboard visualization
     fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
     st.pyplot(fig)
-
 
