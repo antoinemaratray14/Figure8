@@ -48,13 +48,16 @@ def load_data(home_team, away_team):
         return None
 
     def filter_large_json_by_match(file_path, match_id):
-        """Filter events by match_id from a large JSON file."""
+        """Efficiently filter events by match_id from a large JSON file."""
         events = []
         with open(file_path, 'r') as f:
-            parser = ijson.items(f, "item")  # Parse JSON objects
+            parser = ijson.items(f, "item")
             for item in parser:
                 if item.get("match_id") == match_id:
                     events.append(item)
+                # Break early
+                if events and item.get("match_id") != match_id:
+                    break
         return pd.DataFrame(events)
 
     # Google Drive file IDs
