@@ -524,7 +524,10 @@ else:
     events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
     
     # Extract player names from the events for the selected match
-    players = events_df['player.name'].unique()  # List of player names from the events
+    if 'player' in events_df.columns:
+    # Extract player names from the nested 'player' dictionary
+    events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+    players = events_df['player_name'].unique()
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
