@@ -16,21 +16,44 @@ from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
+import requests
+from io import StringIO
 import warnings
 warnings.filterwarnings('ignore')
 
 @st.cache_data
 def load_data():
-    # Load all datasets
-    consolidated_matches = pd.read_csv("/Users/antoinemaratray/Desktop/Code/Figure8_App/Data/consolidated_matches.csv")
-    player_mapping_with_names = pd.read_csv("/Users/antoinemaratray/Desktop/Code/Figure8_App/Data/player_mapping_with_names.csv")
-    with open("/Users/antoinemaratray/Desktop/Code/Figure8_App/Data/SB_Events.json", 'r') as file:
-        event_data = json.load(file)
-    events_df = pd.DataFrame(event_data)
-    with open("/Users/antoinemaratray/Desktop/Code/Figure8_App/Data/player_stats.json", 'r') as file:
-        player_stats_data = json.load(file)
-    with open("/Users/antoinemaratray/Desktop/Code/Figure8_App/Data/Wyscout_PhysicalData.json", 'r') as f:
-        wyscout_data = json.load(f)
+    # Google Drive base URL
+    base_url = "https://drive.google.com/uc?id="
+
+    # File IDs for the Google Drive files
+    file_ids = {
+        "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+        "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+        "sb_events": "1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
+        "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+        "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
+    }
+
+    # Load CSV files
+    consolidated_matches_url = f"{base_url}{file_ids['consolidated_matches']}"
+    player_mapping_with_names_url = f"{base_url}{file_ids['player_mapping_with_names']}"
+
+    consolidated_matches = pd.read_csv(consolidated_matches_url)
+    player_mapping_with_names = pd.read_csv(player_mapping_with_names_url)
+
+    # Load JSON files
+    sb_events_url = f"{base_url}{file_ids['sb_events']}"
+    player_stats_url = f"{base_url}{file_ids['player_stats']}"
+    wyscout_physical_data_url = f"{base_url}{file_ids['wyscout_physical_data']}"
+
+    sb_events_data = requests.get(sb_events_url).json()
+    player_stats_data = requests.get(player_stats_url).json()
+    wyscout_data = requests.get(wyscout_physical_data_url).json()
+
+    # Convert events JSON data into DataFrame
+    events_df = pd.DataFrame(sb_events_data)
+
     return consolidated_matches, player_mapping_with_names, events_df, player_stats_data, wyscout_data
 
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
