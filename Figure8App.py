@@ -17,10 +17,8 @@ from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
-import io
 import warnings
 import os
-import requests
 warnings.filterwarnings('ignore')
 
 # Google Drive base URL
@@ -505,7 +503,6 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
     return fig
 
-
 st.title("Figure 8: Post-Match Dashboard")
 
 # Load Data
@@ -529,7 +526,7 @@ else:
         st.error("The 'player' column does not exist in the events data.")
 
     # Extract player names from the events for the selected match
-    players = events_df['player_name'].unique()  # List of player names from the events
+    players = events_df['player_name'].dropna().unique()  # List of player names from the events
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
