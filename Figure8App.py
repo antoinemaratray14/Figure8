@@ -114,8 +114,8 @@ def load_data():
                 player_stats = load_json_file(file_name)
 
     # Fetch events from StatsBomb API
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
+    #home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
+    #away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
     match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
     if match_info.empty:
