@@ -5,7 +5,6 @@ Created on Mon Dec 30 08:41:04 2024
 
 @author: antoinemaratray
 """
-
 import requests
 import pandas as pd
 import json
@@ -115,8 +114,8 @@ def load_data():
                 player_stats = load_json_file(file_name)
 
     # Fetch events from StatsBomb API
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select")
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select")
+    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
+    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
     match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
     if match_info.empty:
@@ -546,4 +545,5 @@ else:
             # Generate and display the player's match dashboard visualization
             fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
             st.pyplot(fig)
+
 
