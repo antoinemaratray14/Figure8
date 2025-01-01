@@ -151,14 +151,15 @@ def fix_player_name_column(events_df):
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events and handle missing or malformed values
-    valid_locations = filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
-    filtered_events = filtered_events[valid_locations]  # Only keep rows with valid location
+    filtered_events = filtered_events[filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)]
 
-    # Unpack the 'location' list into 'x' and 'y' coordinates
-    if 'location' in filtered_events.columns:
-        filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
-    else:
-        st.error("The 'location' column does not exist or is malformed in the events data.")
+    # Only proceed if there are valid rows with the location data
+    if filtered_events.empty:
+        st.error("No valid location data found in events.")
+        return None
+    
+    # Now safely unpack the 'location' list into 'x' and 'y' coordinates
+    filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
 
     # Extract 'end_x' and 'end_y' for passes and carries
     filtered_events['end_x'] = filtered_events.apply(
