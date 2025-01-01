@@ -25,9 +25,7 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-st.write(st.secrets)
-
-def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
+def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name, progress_bar=None):
     """Download a file from Google Cloud Storage."""
     
     # Initialize the storage client (No need for authentication since it's public)
@@ -36,13 +34,23 @@ def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name)
     # Access the bucket and the file
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
-    
-    # Download the file to a local file path
-    blob.download_to_filename(destination_file_name)
+
+    # Set up the progress tracking for the download
+    total_size = blob.size
+    progress_bar.progress(0)
+
+    # Download the file in chunks
+    with open(destination_file_name, 'wb') as file:
+        for chunk in blob.download_as_bytes(chunk_size=1024 * 1024):
+            file.write(chunk)
+            # Update the progress bar based on the downloaded chunk size
+            downloaded_size = file.tell()
+            progress_bar.progress(int((downloaded_size / total_size) * 100))
+
     print(f"Downloaded {source_blob_name} to {destination_file_name}.")
 
-# Function to load large JSON files from GCS incrementally
-def load_large_json_from_gcs(bucket_name, json_file_name):
+# Function to load large JSON files from GCS incrementally with progress
+def load_large_json_from_gcs(bucket_name, json_file_name, progress_bar=None):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
     
     # Initialize the storage client (No authentication required)
@@ -54,16 +62,23 @@ def load_large_json_from_gcs(bucket_name, json_file_name):
     
     # Download the file as text
     data = blob.download_as_text()
-    
+
+    # Calculate the total number of items in the JSON file
+    total_items = sum(1 for _ in ijson.items(data, "item"))
+    progress_bar.progress(0)
+
     # Parse the JSON file incrementally
     rows = []
     parser = ijson.items(data, "item")  # Adjust the key based on your JSON structure
-    for item in parser:
+    for i, item in enumerate(parser):
         rows.append(item)
+        # Update the progress bar based on the number of items processed
+        progress_bar.progress(int(((i + 1) / total_items) * 100))
     
     # Return the data as a Pandas DataFrame
     return pd.DataFrame(rows)
 
+# Function to load data from GCS with caching
 @st.cache_data
 def load_data():
     # Your Google Cloud Storage bucket name
@@ -85,12 +100,18 @@ def load_data():
     player_stats = None
     wyscout_physical_data = None
 
+    # Create a progress bar in Streamlit
+    progress_bar = st.progress(0)
+    total_files = len(files)
+    
     # Download each file from GCS (public access)
-    for key, file_name in files.items():
+    for i, (key, file_name) in enumerate(files.items()):
+        progress_bar.progress(int(((i + 1) / total_files) * 100))  # Update progress bar
+
         if key == "sb_events":  # Special case for large JSON file
-            sb_events = load_large_json_from_gcs(bucket_name, file_name)
+            sb_events = load_large_json_from_gcs(bucket_name, file_name, progress_bar)
         else:
-            download_file_from_gcs(bucket_name, file_name, file_name)
+            download_file_from_gcs(bucket_name, file_name, file_name, progress_bar)
             if file_name.endswith('.csv'):
                 if key == "consolidated_matches":
                     consolidated_matches = pd.read_csv(file_name)
@@ -104,8 +125,11 @@ def load_data():
                     with open(file_name, "r") as f:
                         wyscout_physical_data = json.load(f)
 
+    progress_bar.progress(100)  # Set progress bar to 100% after loading is complete
+
     # Return the loaded data
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+    
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
