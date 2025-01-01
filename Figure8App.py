@@ -29,7 +29,7 @@ warnings.filterwarnings('ignore')
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
     # Explicitly set the credentials using Streamlit secrets
-    credentials_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials_info = st.secrets["GOOGLE_CREDENTIALS_JSON"]
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
 
     # Use the credentials explicitly here
