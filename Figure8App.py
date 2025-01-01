@@ -541,6 +541,7 @@ else:
 
     # Define filtered_events based on the selected player and match
     filtered_events = events_df[events_df['player_name'] == player]
+    print(filtered_events.columns)
 
     
     # Generate and display the player's match dashboard visualization
