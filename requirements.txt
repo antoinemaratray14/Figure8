@@ -10,3 +10,4 @@ highlight-text
 tqdm
 ijson
 requests
+statsbombpy
