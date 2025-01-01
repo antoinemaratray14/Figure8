@@ -538,6 +538,11 @@ else:
         st.error(f"No season stats found for player: {player}")
         st.stop()
 
+
+    # Define filtered_events based on the selected player and match
+    filtered_events = events_df[events_df['player_name'] == player]
+
+    
     # Generate and display the player's match dashboard visualization
     fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
     st.pyplot(fig)
