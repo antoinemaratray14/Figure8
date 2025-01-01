@@ -1,10 +1,13 @@
 streamlit
+google-cloud-storage
+google-auth
 pandas
+json
+numpy
 matplotlib
 seaborn
 mplsoccer
 highlight-text
-requests
-ijson
 tqdm
-google-cloud-storage
+ijson
+requests
