@@ -25,42 +25,55 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
-    # Explicitly set the credentials using Streamlit secrets
+    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
     credentials_info = st.secrets["GOOGLE_CREDENTIALS_JSON"]
-    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    
+    # Convert the credentials JSON string to a Python dictionary
+    credentials_dict = json.loads(credentials_info)
+    
+    # Use the credentials to authenticate
+    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 
-    # Use the credentials explicitly here
-    client = storage.Client(credentials=credentials, project=credentials_info["project_id"])
+    # Initialize the storage client with the credentials
+    client = storage.Client(credentials=credentials, project=credentials_dict["project_id"])
+    
+    # Access the bucket and the file
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
     
-    # Download the file to a destination path
+    # Download the file
     blob.download_to_filename(destination_file_name)
     print(f"Downloaded {source_blob_name} to {destination_file_name}.")
 
-# Loading large JSON from Google Cloud
 def load_large_json_from_gcs(bucket_name, json_file_name):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
-    credentials_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
+    credentials_info = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+    
+    # Convert the credentials JSON string to a Python dictionary
+    credentials_dict = json.loads(credentials_info)
+    
+    # Use the credentials to authenticate
+    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 
-    # Use the credentials explicitly here
-    client = storage.Client(credentials=credentials, project=credentials_info["project_id"])
+    # Initialize the storage client with the credentials
+    client = storage.Client(credentials=credentials, project=credentials_dict["project_id"])
+    
+    # Access the bucket and the JSON file
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(json_file_name)
     
-    rows = []
-    # Download as text
+    # Download the file as text
     data = blob.download_as_text()
+    rows = []
     parser = ijson.items(data, "item")  # Adjust the key based on your JSON structure
     for item in parser:
         rows.append(item)
+    
     return pd.DataFrame(rows)
 
-# Loading data function
 @st.cache_data
 def load_data():
     # Your Google Cloud Storage bucket name
