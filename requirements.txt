@@ -1,8 +1,8 @@
-﻿streamlit
-gdown
+streamlit
 pandas
 matplotlib
 seaborn
 mplsoccer
-highlight_text
+highlight-text
 requests
+tqdm
