@@ -1,0 +1,6 @@
+﻿streamlit
+pandas
+matplotlib
+seaborn
+mplsoccer
+highlight_text requests
