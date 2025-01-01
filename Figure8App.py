@@ -16,82 +16,88 @@ from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
-import requests
-from io import StringIO
+from google.cloud import storage
+import io
 import warnings
 import ijson
 import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
+
+def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
+    """Download a file from Google Cloud Storage."""
+    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+
+    client = storage.Client()
+    bucket = client.get_bucket(bucket_name)
+    blob = bucket.blob(source_blob_name)
+
+    # Download the file to a destination path
+    blob.download_to_filename(destination_file_name)
+    print(f"Downloaded {source_blob_name} to {destination_file_name}.")
+
+
+def load_large_json_from_gcs(bucket_name, json_file_name):
+    """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
+    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+
+    client = storage.Client()
+    bucket = client.get_bucket(bucket_name)
+    blob = bucket.blob(json_file_name)
+    rows = []
+    # Download as text
+    data = blob.download_as_text()
+    parser = ijson.items(data, "item")  # Adjust the key based on your JSON structure
+    for item in parser:
+        rows.append(item)
+    return pd.DataFrame(rows)
+
+
 @st.cache_data
 def load_data():
-    def download_file_from_google_drive(file_id, destination):
-        """Download a large file from Google Drive by streaming."""
-        base_url = "https://drive.google.com/uc?export=download"
-        session = requests.Session()
-        response = session.get(base_url, params={"id": file_id}, stream=True)
-        token = get_confirm_token(response)
+    # Your Google Cloud Storage bucket name
+    bucket_name = 'figure8data'  # Replace with your actual bucket name
 
-        if token:
-            response = session.get(base_url, params={"id": file_id, "confirm": token}, stream=True)
-
-        with open(destination, "wb") as f:
-            for chunk in tqdm(response.iter_content(32768), desc=f"Downloading {destination}"):
-                if chunk:
-                    f.write(chunk)
-
-    def get_confirm_token(response):
-        """Get the confirm token from the response cookies if the file is large."""
-        for key, value in response.cookies.items():
-            if key.startswith("download_warning"):
-                return value
-        return None
-
-    def load_large_json(filepath):
-        """Incrementally load a large JSON file into a Pandas DataFrame."""
-        rows = []
-        with open(filepath, "r") as f:
-            # Parse the JSON incrementally
-            parser = ijson.items(f, "item")  # Adjust the key based on your JSON structure
-            for item in parser:
-                rows.append(item)
-        return pd.DataFrame(rows)
-
-    # Google Drive file IDs
-    file_ids = {
-        "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
-        "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
-        "sb_events": "1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
-        "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
-        "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
-    }
-
-    # Temporary file paths
-    paths = {
+    # File paths in Google Cloud Storage (ensure these match the file names in your GCS bucket)
+    files = {
         "consolidated_matches": "consolidated_matches.csv",
         "player_mapping_with_names": "player_mapping_with_names.csv",
-        "sb_events": "sb_events.json",
+        "sb_events": "SB_Events.json",
         "player_stats": "player_stats.json",
-        "wyscout_physical_data": "wyscout_physical_data.json",
+        "wyscout_physical_data": "Wyscout_PhysicalData.json",
     }
 
-    # Download each file
-    for key, file_id in file_ids.items():
-        if not os.path.exists(paths[key]):  # Avoid re-downloading
-            download_file_from_google_drive(file_id, paths[key])
+    # Initialize variables
+    consolidated_matches = None
+    player_mapping_with_names = None
+    sb_events = None
+    player_stats = None
+    wyscout_physical_data = None
 
-    # Load files into variables
-    consolidated_matches = pd.read_csv(paths["consolidated_matches"])
-    player_mapping_with_names = pd.read_csv(paths["player_mapping_with_names"])
-    sb_events_df = load_large_json(paths["sb_events"])  # Use the updated function
-    with open(paths["player_stats"], "r") as f:
-        player_stats_data = json.load(f)
-    with open(paths["wyscout_physical_data"], "r") as f:
-        wyscout_data = json.load(f)
+    # Download each file from GCS
+    for key, file_name in files.items():
+        if key == "sb_events":  # Special case for large JSON file
+            sb_events = load_large_json_from_gcs(bucket_name, file_name)
+        else:
+            download_file_from_gcs(bucket_name, file_name, file_name)
+            if file_name.endswith('.csv'):
+                if key == "consolidated_matches":
+                    consolidated_matches = pd.read_csv(file_name)
+                elif key == "player_mapping_with_names":
+                    player_mapping_with_names = pd.read_csv(file_name)
+            else:
+                if key == "player_stats":
+                    with open(file_name, "r") as f:
+                        player_stats = json.load(f)
+                elif key == "wyscout_physical_data":
+                    with open(file_name, "r") as f:
+                        wyscout_physical_data = json.load(f)
 
-    return consolidated_matches, player_mapping_with_names, sb_events_df, player_stats_data, wyscout_data
-
+    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+    
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
