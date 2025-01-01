@@ -30,46 +30,23 @@ st.write(st.secrets)
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
     
-    # Access the credentials from the environment variable
-    credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    
-    if credentials_info is None:
-        raise ValueError("Google credentials not found in environment variables.")
-    
-    # Convert the JSON string to a Python dictionary
-    credentials_dict = json.loads(credentials_info)  
-    
-    # Use the credentials to authenticate
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+    # Initialize the storage client (No need for authentication since it's public)
+    client = storage.Client()
 
-    # Initialize the storage client with the credentials
-    client = storage.Client(credentials=credentials, project=credentials_dict["project_id"])
-    
     # Access the bucket and the file
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
     
-    # Download the file
+    # Download the file to a local file path
     blob.download_to_filename(destination_file_name)
     print(f"Downloaded {source_blob_name} to {destination_file_name}.")
 
+# Function to load large JSON files from GCS incrementally
 def load_large_json_from_gcs(bucket_name, json_file_name):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
     
-    # Access the credentials from the environment variable
-    credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    
-    if credentials_info is None:
-        raise ValueError("Google credentials not found in environment variables.")
-    
-    # Convert the credentials JSON string to a Python dictionary
-    credentials_dict = json.loads(credentials_info)
-    
-    # Use the credentials to authenticate
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-
-    # Initialize the storage client with the credentials
-    client = storage.Client(credentials=credentials, project=credentials_dict["project_id"])
+    # Initialize the storage client (No authentication required)
+    client = storage.Client()
     
     # Access the bucket and the JSON file
     bucket = client.get_bucket(bucket_name)
@@ -77,11 +54,14 @@ def load_large_json_from_gcs(bucket_name, json_file_name):
     
     # Download the file as text
     data = blob.download_as_text()
+    
+    # Parse the JSON file incrementally
     rows = []
     parser = ijson.items(data, "item")  # Adjust the key based on your JSON structure
     for item in parser:
         rows.append(item)
     
+    # Return the data as a Pandas DataFrame
     return pd.DataFrame(rows)
 
 @st.cache_data
@@ -98,14 +78,14 @@ def load_data():
         "wyscout_physical_data": "Wyscout_PhysicalData.json",
     }
 
-    # Initialize variables
+    # Initialize variables to hold the loaded data
     consolidated_matches = None
     player_mapping_with_names = None
     sb_events = None
     player_stats = None
     wyscout_physical_data = None
 
-    # Download each file from GCS
+    # Download each file from GCS (public access)
     for key, file_name in files.items():
         if key == "sb_events":  # Special case for large JSON file
             sb_events = load_large_json_from_gcs(bucket_name, file_name)
@@ -124,8 +104,8 @@ def load_data():
                     with open(file_name, "r") as f:
                         wyscout_physical_data = json.load(f)
 
+    # Return the loaded data
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
-
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
