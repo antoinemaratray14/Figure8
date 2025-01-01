@@ -521,13 +521,15 @@ if match_info.empty:
 else:
     match_id = match_info['statsbomb_id'].values[0]  # Use statsbomb_id as match_id
     events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-
-    # Extract player names from the 'player' dictionary in the events data
+    
+    # Debugging: Check if 'player' exists and create 'player_name' column
     if 'player' in events_df.columns:
         events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
-    
-    # Extract player names from the events DataFrame
-    players = events_df['player_name'].unique()  # Get unique player names from the events data
+    else:
+        st.error("The 'player' column does not exist in the events data.")
+
+    # Extract player names from the events for the selected match
+    players = events_df['player_name'].unique()  # List of player names from the events
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
