@@ -17,6 +17,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
 from google.cloud import storage
+from google.oauth2 import service_account
 import io
 import warnings
 import ijson
@@ -27,26 +28,30 @@ warnings.filterwarnings('ignore')
 
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
-    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+    # Explicitly set the credentials using Streamlit secrets
+    credentials_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
 
-    client = storage.Client()
+    # Use the credentials explicitly here
+    client = storage.Client(credentials=credentials, project=credentials_info["project_id"])
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
-
+    
     # Download the file to a destination path
     blob.download_to_filename(destination_file_name)
     print(f"Downloaded {source_blob_name} to {destination_file_name}.")
 
-
+# Loading large JSON from Google Cloud
 def load_large_json_from_gcs(bucket_name, json_file_name):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
-    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+    credentials_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
 
-    client = storage.Client()
+    # Use the credentials explicitly here
+    client = storage.Client(credentials=credentials, project=credentials_info["project_id"])
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(json_file_name)
+    
     rows = []
     # Download as text
     data = blob.download_as_text()
@@ -55,7 +60,7 @@ def load_large_json_from_gcs(bucket_name, json_file_name):
         rows.append(item)
     return pd.DataFrame(rows)
 
-
+# Loading data function
 @st.cache_data
 def load_data():
     # Your Google Cloud Storage bucket name
