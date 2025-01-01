@@ -506,7 +506,6 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     return fig
 
 
-# Main Streamlit App
 st.title("Figure 8: Post-Match Dashboard")
 
 # Load Data
@@ -522,12 +521,13 @@ if match_info.empty:
 else:
     match_id = match_info['statsbomb_id'].values[0]  # Use statsbomb_id as match_id
     events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-    
-    # Extract player names from the events for the selected match
+
+    # Extract player names from the 'player' dictionary in the events data
     if 'player' in events_df.columns:
-    # Extract player names from the nested 'player' dictionary
-    events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
-    players = events_df['player_name'].unique()
+        events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+    
+    # Extract player names from the events DataFrame
+    players = events_df['player_name'].unique()  # Get unique player names from the events data
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
@@ -536,7 +536,7 @@ else:
             opponent = match_info['away_team'].values[0] if home_team == match_info['home_team'].values[0] else match_info['home_team']
             
             # Filter events for the selected player and match
-            filtered_events = events_df[events_df['player.name'] == player]
+            filtered_events = events_df[events_df['player_name'] == player]
     
             # Ensure the player's match stats are available for visualization
             season_stats_for_player = season_stats[season_stats['player_name'] == player]
