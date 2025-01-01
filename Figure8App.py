@@ -25,8 +25,7 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-# Print the environment variable to check if it's properly set
-st.write(os.getenv("GOOGLE_CREDENTIALS_JSON"))
+st.write(st.secrets)
 
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
