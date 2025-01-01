@@ -3,4 +3,5 @@ pandas
 matplotlib
 seaborn
 mplsoccer
-highlight_text requests
+highlight_text
+requests
