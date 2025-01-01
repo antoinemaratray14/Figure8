@@ -127,24 +127,15 @@ def load_data():
     else:
         match_id = match_info['statsbomb_id'].values[0]
         sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-
+        
         # Fix: Check if 'player' exists and create 'player_name' column
         sb_events = fix_player_name_column(sb_events)
         
-        # Filter out rows where 'location' is invalid (not a list or doesn't have exactly 2 elements)
-        valid_locations = sb_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
-        invalid_rows = sb_events[~valid_locations]  # Rows with invalid 'location'
+        # Extract event types correctly (type.name -> 'type' key in the nested structure)
+        sb_events['event_type'] = sb_events['type'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
         
-        # If there are invalid rows, log them to Streamlit
-        if not invalid_rows.empty:
-            st.write("Found invalid location data in the following rows:")
-            st.write(invalid_rows)
-        
-        # Filter out invalid rows
-        sb_events = sb_events[valid_locations]
-        
-        # Now we can safely create the 'x' and 'y' columns
-        sb_events[['x', 'y']] = pd.DataFrame(sb_events['location'].tolist(), index=sb_events.index)
+        # Handle player positions and locations (x, y)
+        sb_events[['x', 'y']] = pd.DataFrame(sb_events['location'].apply(lambda loc: loc[:2] if isinstance(loc, list) and len(loc) == 2 else [None, None]).tolist(), index=sb_events.index)
 
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
     
@@ -159,18 +150,11 @@ def fix_player_name_column(events_df):
 
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
-    # Ensure valid locations in filtered events and handle missing or malformed values
-    filtered_events = filtered_events[filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)]
-
-    # Only proceed if there are valid rows with the location data
-    if filtered_events.empty:
-        st.error("No valid location data found in events.")
-        return None
-    
-    # Now safely unpack the 'location' list into 'x' and 'y' coordinates
+    # Ensure valid locations in filtered events
+    filtered_events = filtered_events[
+        filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
+    ]
     filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
-    st.write("Filtered events with 'x' and 'y' coordinates", filtered_events[['x', 'y']].head())
-
 
     # Extract 'end_x' and 'end_y' for passes and carries
     filtered_events['end_x'] = filtered_events.apply(
