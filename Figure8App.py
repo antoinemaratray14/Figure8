@@ -112,22 +112,6 @@ def load_data():
             elif key == "player_stats":
                 player_stats = load_json_file(file_name)
 
-    # Fetch events from StatsBomb API
-    home_team_key = "home_team_select_unique_1"
-    away_team_key = "away_team_select_unique_1"
-    player_select_key = "player_select_unique_1"
-
-    # Sidebar Inputs with unique keys
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
-    match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
-
-    if match_info.empty:
-        st.error("No match found for the selected teams.")
-    else:
-        match_id = match_info['statsbomb_id'].values[0]
-        sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
 
 # Ensure player_name is in the events
@@ -524,8 +508,8 @@ home_team_key = "home_team_select_unique_1"
 away_team_key = "away_team_select_unique_1"
 player_select_key = "player_select_unique_1"
 
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=f"home_team_select_{home_team}")
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=f"away_team_select_{away_team}")
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -539,7 +523,7 @@ else:
     
     # Extract player names from the events for the selected match
     players = events_df['player_name'].dropna().unique()  # List of player names from the events
-    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=f"player_select_{player}")  # Dropdown for player selection
+    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
 
     # Ensure 'season_stats' is a DataFrame
     if isinstance(season_stats, list):
