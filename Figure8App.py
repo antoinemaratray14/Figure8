@@ -158,14 +158,14 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
     # Extract 'end_x' and 'end_y' for passes and carries
     filtered_events['end_x'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][0] if row['type.name'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
-            row['carry.end_location'][0] if row['type.name'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
+        lambda row: row['pass.end_location'][0] if isinstance(row.get('pass.end_location'), list) and row.get('type', {}).get('name') == 'Pass' else (
+            row['carry.end_location'][0] if isinstance(row.get('carry.end_location'), list) and row.get('type', {}).get('name') == 'Carry' else None
         ),
         axis=1
     )
     filtered_events['end_y'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][1] if row['type.name'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
-            row['carry.end_location'][1] if row['type.name'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
+        lambda row: row['pass.end_location'][1] if isinstance(row.get('pass.end_location'), list) and row.get('type', {}).get('name') == 'Pass' else (
+            row['carry.end_location'][1] if isinstance(row.get('carry.end_location'), list) and row.get('type', {}).get('name') == 'Carry' else None
         ),
         axis=1
     )
