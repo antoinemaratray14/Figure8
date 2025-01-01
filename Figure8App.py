@@ -25,13 +25,15 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
+
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
-    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
-    credentials_info = st.secrets["GOOGLE_CREDENTIALS_JSON"]
     
-    # Convert the credentials JSON string to a Python dictionary
-    credentials_dict = json.loads(credentials_info)
+    # Access the credentials from Streamlit's secrets manager
+    credentials_info = st.secrets["google_credentials"]["GOOGLE_CREDENTIALS_JSON"]
+    
+    # Convert the JSON string to a Python dictionary
+    credentials_dict = json.loads(credentials_info)  
     
     # Use the credentials to authenticate
     credentials = service_account.Credentials.from_service_account_info(credentials_dict)
