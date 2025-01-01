@@ -510,6 +510,9 @@ consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscou
 # Sidebar Inputs with unique keys
 home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
 away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
+player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select_unique")  # Ensure a unique key
+
+# Load the events for the match
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -520,7 +523,7 @@ else:
     
     # Fix: Check if 'player' exists and create 'player_name' column
     if 'player' in events_df.columns:
-        events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+        events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) and 'name' in x else None)
     else:
         st.error("The 'player' column does not exist in the events data.")
     
@@ -528,23 +531,26 @@ else:
     players = events_df['player_name'].dropna().unique()  # List of player names from the events
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select_unique")  # Dropdown for player selection
 
+    # Ensure 'season_stats' is a DataFrame before using it
+    if isinstance(season_stats, list):
+        season_stats = pd.DataFrame(season_stats)
+    
+    # Ensure the player's match stats are available for visualization
+    season_stats_for_player = season_stats[season_stats['player_name'] == player]
+    if player in season_stats_for_player['player_name'].values:
+        player_match = season_stats_for_player[season_stats_for_player['match_id'] == match_id]
+        player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
+    else:
+        st.error(f"No season stats found for player: {player}")
+        st.stop()
+
     if st.button("Generate Visualization"):
         with st.spinner("Generating plots..."):
             # Filter events for the selected player and match
             filtered_events = events_df[events_df['player_name'] == player]
             
-            # Ensure the player's match stats are available for visualization
-            season_stats_for_player = season_stats[season_stats['player_name'] == player]
-            if player in season_stats_for_player['player_name'].values:
-                player_match = season_stats_for_player[season_stats_for_player['match_id'] == match_id]
-                player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
-            else:
-                st.error(f"No season stats found for player: {player}")
-                st.stop()
-
             # Generate and display the player's match dashboard visualization
             fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
             st.pyplot(fig)
-
 
 
