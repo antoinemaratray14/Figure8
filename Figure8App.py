@@ -25,7 +25,7 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-
+st.write(st.secrets)
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
     
