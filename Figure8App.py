@@ -23,33 +23,23 @@ warnings.filterwarnings('ignore')
 
 @st.cache_data
 def load_data():
-    # Google Drive base URL
-    base_url = "https://drive.google.com/uc?id="
-
-    # File IDs for the Google Drive files
-    file_ids = {
-        "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
-        "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
-        "sb_events": "1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
-        "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
-        "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
+    # File URLs (use raw download links)
+    urls = {
+        "consolidated_matches": "https://drive.google.com/uc?id=11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+        "player_mapping_with_names": "https://drive.google.com/uc?id=1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+        "sb_events": "https://drive.google.com/uc?id=1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
+        "player_stats": "https://drive.google.com/uc?id=1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+        "wyscout_physical_data": "https://drive.google.com/uc?id=1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
     }
 
     # Load CSV files
-    consolidated_matches_url = f"{base_url}{file_ids['consolidated_matches']}"
-    player_mapping_with_names_url = f"{base_url}{file_ids['player_mapping_with_names']}"
-
-    consolidated_matches = pd.read_csv(consolidated_matches_url)
-    player_mapping_with_names = pd.read_csv(player_mapping_with_names_url)
+    consolidated_matches = pd.read_csv(urls["consolidated_matches"])
+    player_mapping_with_names = pd.read_csv(urls["player_mapping_with_names"])
 
     # Load JSON files
-    sb_events_url = f"{base_url}{file_ids['sb_events']}"
-    player_stats_url = f"{base_url}{file_ids['player_stats']}"
-    wyscout_physical_data_url = f"{base_url}{file_ids['wyscout_physical_data']}"
-
-    sb_events_data = requests.get(sb_events_url).json()
-    player_stats_data = requests.get(player_stats_url).json()
-    wyscout_data = requests.get(wyscout_physical_data_url).json()
+    sb_events_data = requests.get(urls["sb_events"]).json()
+    player_stats_data = requests.get(urls["player_stats"]).json()
+    wyscout_data = requests.get(urls["wyscout_physical_data"]).json()
 
     # Convert events JSON data into DataFrame
     events_df = pd.DataFrame(sb_events_data)
