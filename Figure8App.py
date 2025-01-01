@@ -25,12 +25,17 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-st.write(st.secrets)
+# Print the environment variable to check if it's properly set
+st.write(os.getenv("GOOGLE_CREDENTIALS_JSON"))
+
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
     
-    # Access the credentials from Streamlit's secrets manager
-    credentials_info = st.secrets["google_credentials"]["GOOGLE_CREDENTIALS_JSON"]
+    # Access the credentials from the environment variable
+    credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    
+    if credentials_info is None:
+        raise ValueError("Google credentials not found in environment variables.")
     
     # Convert the JSON string to a Python dictionary
     credentials_dict = json.loads(credentials_info)  
@@ -51,8 +56,12 @@ def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name)
 
 def load_large_json_from_gcs(bucket_name, json_file_name):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
-    # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable using Streamlit secrets
-    credentials_info = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+    
+    # Access the credentials from the environment variable
+    credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    
+    if credentials_info is None:
+        raise ValueError("Google credentials not found in environment variables.")
     
     # Convert the credentials JSON string to a Python dictionary
     credentials_dict = json.loads(credentials_info)
@@ -117,6 +126,7 @@ def load_data():
                         wyscout_physical_data = json.load(f)
 
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
