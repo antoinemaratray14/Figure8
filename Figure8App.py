@@ -12,6 +12,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import streamlit as st
 from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
