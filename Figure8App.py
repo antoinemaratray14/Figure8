@@ -25,11 +25,11 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-# StatsBomb API URL and credentials
 BASE_URL = "https://data.statsbomb.com/api/v8/events/"
 USERNAME = "admin@figure8.com"
 PASSWORD = "QCOKgqp1"
 
+# Function to fetch events from StatsBomb API
 def fetch_events_from_statsbomb(match_id):
     url = f"{BASE_URL}{match_id}"
     response = requests.get(url, auth=(USERNAME, PASSWORD))  # Use the provided credentials
@@ -41,53 +41,76 @@ def fetch_events_from_statsbomb(match_id):
     else:
         raise ValueError(f"Failed to fetch events for match {match_id}, status code: {response.status_code}")
 
+# Google Drive base URL
+base_url = "https://drive.google.com/uc?id="
+
+# File IDs for Google Drive
+file_ids = {
+    "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+    "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+    "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
+    "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
+    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",
+    "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+}
+
+# Function to download file from Google Drive
+def download_file_from_drive(file_id, destination_file_name):
+    """Download a file from Google Drive using its ID."""
+    url = f"{base_url}{file_id}&export=download"
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(destination_file_name, 'wb') as f:
+            f.write(response.content)
+        print(f"Downloaded {destination_file_name} from Google Drive.")
+    else:
+        print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
+
+# Function to load data
 @st.cache_data
 def load_data():
-    # Your Google Cloud Storage bucket name (if still needed)
-    bucket_name = 'figure8data'  # Replace with your actual bucket name
-
-    # File paths in Google Cloud Storage (if still used)
-    files = {
-        "consolidated_matches": "consolidated_matches.csv",
-        "player_mapping_with_names": "player_mapping_with_names.csv",
-        # Remove sb_events as we're fetching from API now
-        "player_stats": "player_stats.json",
-        "wyscout_physical_data": "Wyscout_PhysicalData.json",
-    }
-
-    # Initialize variables to hold the loaded data
+    # Initialize variables
     consolidated_matches = None
     player_mapping_with_names = None
     sb_events = None
     player_stats = None
     wyscout_physical_data = None
 
-    # Download each file or fetch data from API
-    for key, file_name in files.items():
-        if key == "sb_events":  # Special case for fetching from API
-            # Fetch the match ID for the selected home and away teams
-            home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
-            away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
-            match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
+    # Download each file from Google Drive
+    for key, file_id in file_ids.items():
+        file_name = f"{key}.csv" if key not in ["player_stats", "wyscout_physical_data"] else f"{key}.json"
+        download_file_from_drive(file_id, file_name)  # Download file from Google Drive
 
-            if match_info.empty:
-                st.error("No match found for the selected teams.")
-            else:
-                match_id = match_info['statsbomb_id'].values[0]
-                sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-        else:
-            if file_name.endswith('.csv'):
-                if key == "consolidated_matches":
-                    consolidated_matches = pd.read_csv(file_name)
-                elif key == "player_mapping_with_names":
-                    player_mapping_with_names = pd.read_csv(file_name)
-            else:
-                if key == "player_stats":
-                    with open(file_name, "r") as f:
-                        player_stats = json.load(f)
-                elif key == "wyscout_physical_data":
-                    with open(file_name, "r") as f:
-                        wyscout_physical_data = json.load(f)
+        # Handle CSV files
+        if file_name.endswith('.csv'):
+            if key == "consolidated_matches":
+                consolidated_matches = pd.read_csv(file_name)
+            elif key == "player_mapping_with_names":
+                player_mapping_with_names = pd.read_csv(file_name)
+            elif key == "mapping_matches":
+                mapping_matches = pd.read_csv(file_name)
+            elif key == "mapping_players":
+                mapping_players = pd.read_csv(file_name)
+
+        # Handle JSON files
+        elif file_name.endswith('.json'):
+            if key == "wyscout_physical_data":
+                with open(file_name, "r") as f:
+                    wyscout_physical_data = json.load(f)
+            elif key == "player_stats":
+                with open(file_name, "r") as f:
+                    player_stats = json.load(f)
+
+    # Fetch events from StatsBomb API
+    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
+    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
+    match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
+
+    if match_info.empty:
+        st.error("No match found for the selected teams.")
+    else:
+        match_id = match_info['statsbomb_id'].values[0]
+        sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
 
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
 
