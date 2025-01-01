@@ -114,17 +114,28 @@ def load_data():
                 player_stats = load_json_file(file_name)
 
     # Fetch events from StatsBomb API
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
+    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select")
+    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select")
     match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
-
+    
     if match_info.empty:
         st.error("No match found for the selected teams.")
     else:
         match_id = match_info['statsbomb_id'].values[0]
         sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-
-    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+        
+        # Ensure the 'player' key exists and create the 'player_name' column
+        if 'player' in sb_events.columns:
+            sb_events['player_name'] = sb_events['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+        else:
+            st.error("The 'player' key does not exist in the events data.")
+            st.stop()  # Stop execution if player column is missing
+    
+        # Extract player names from the events for the selected match
+        players = sb_events['player_name'].dropna().unique()  # List of player names from the events
+        player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select_unique")  # Dropdown for player selection
+        
+        return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
 
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
