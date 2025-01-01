@@ -7,3 +7,4 @@ highlight-text
 requests
 ijson
 tqdm
+google-cloud-storage
