@@ -2,7 +2,6 @@ streamlit
 google-cloud-storage
 google-auth
 pandas
-json
 numpy
 matplotlib
 seaborn
