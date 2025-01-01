@@ -21,7 +21,6 @@ import warnings
 import os
 warnings.filterwarnings('ignore')
 
-# Google Drive base URL
 base_url = "https://drive.google.com/uc?id="
 
 # File IDs for Google Drive
@@ -115,8 +114,8 @@ def load_data():
                 player_stats = load_json_file(file_name)
 
     # Fetch events from StatsBomb API
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
+    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key='home_team')
+    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key='away_team')
     match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
     if match_info.empty:
@@ -508,9 +507,9 @@ st.title("Figure 8: Post-Match Dashboard")
 # Load Data
 consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscout_data = load_data()
 
-# Sidebar Inputs
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
+# Sidebar Inputs with unique keys
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select")
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select")
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -527,7 +526,7 @@ else:
 
     # Extract player names from the events for the selected match
     players = events_df['player_name'].dropna().unique()  # List of player names from the events
-    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
+    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select")  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
         with st.spinner("Generating plots..."):
