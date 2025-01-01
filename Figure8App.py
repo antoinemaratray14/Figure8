@@ -112,11 +112,37 @@ def load_data():
             elif key == "player_stats":
                 player_stats = load_json_file(file_name)
 
+    # Fetch events from StatsBomb API
+    home_team_key = "home_team_select_unique_1"
+    away_team_key = "away_team_select_unique_1"
+    player_select_key = "player_select_unique_1"
+
+    # Sidebar Inputs with unique keys
+    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
+    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
+    match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
+
+    if match_info.empty:
+        st.error("No match found for the selected teams.")
+    else:
+        match_id = match_info['statsbomb_id'].values[0]
+        sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
+        
+        # Fix: Check if 'player' exists and create 'player_name' column
+        sb_events = fix_player_name_column(sb_events)
+        
+        # Extract event types correctly (type.name -> 'type' key in the nested structure)
+        sb_events['event_type'] = sb_events['type'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+        
+        # Handle player positions and locations (x, y)
+        sb_events[['x', 'y']] = pd.DataFrame(sb_events['location'].tolist(), index=sb_events.index)
+
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
 
 # Ensure player_name is in the events
 def fix_player_name_column(events_df):
     if 'player' in events_df.columns:
+        # Extract player names from the nested 'player' structure
         events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
     else:
         st.error("The 'player' column does not exist in the events data.")
