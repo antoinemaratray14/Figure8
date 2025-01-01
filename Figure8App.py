@@ -160,7 +160,8 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     
     # Now safely unpack the 'location' list into 'x' and 'y' coordinates
     filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
-    print(filtered_events[['x', 'y']].head())
+    st.write("Filtered events with 'x' and 'y' coordinates", filtered_events[['x', 'y']].head())
+
 
     # Extract 'end_x' and 'end_y' for passes and carries
     filtered_events['end_x'] = filtered_events.apply(
