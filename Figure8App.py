@@ -6,7 +6,7 @@ Created on Mon Dec 30 08:41:04 2024
 @author: antoinemaratray
 """
 
-import streamlit as st
+import requests
 import pandas as pd
 import json
 import numpy as np
@@ -16,16 +16,56 @@ from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
-from google.cloud import storage
-from google.oauth2 import service_account
 import io
 import warnings
-import requests
-import ijson
 import os
-from tqdm import tqdm
+import requests
 warnings.filterwarnings('ignore')
 
+# Google Drive base URL
+base_url = "https://drive.google.com/uc?id="
+
+# File IDs for Google Drive
+file_ids = {
+    "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+    "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+    "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
+    "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
+    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",  # Your JSON file ID
+    "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+}
+
+# Function to download file from Google Drive
+def download_file_from_drive(file_id, destination_file_name):
+    """Download a file from Google Drive using its ID."""
+    url = f"{base_url}{file_id}&export=download"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        with open(destination_file_name, 'wb') as f:
+            f.write(response.content)
+        print(f"Downloaded {destination_file_name} from Google Drive.")
+    else:
+        print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
+        print(f"Response content: {response.content[:100]}")  # Print first 100 characters of response
+        return None
+    return destination_file_name
+
+# Function to load JSON file
+def load_json_file(file_name):
+    """Load a JSON file and handle any issues."""
+    try:
+        with open(file_name, "r") as f:
+            data = json.load(f)
+        print(f"Successfully loaded JSON from {file_name}")
+        return data
+    except json.JSONDecodeError as e:
+        print(f"Failed to decode JSON from {file_name}: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    return None
+
+# StatsBomb API URL and credentials
 BASE_URL = "https://data.statsbomb.com/api/v8/events/"
 USERNAME = "admin@figure8.com"
 PASSWORD = "QCOKgqp1"
@@ -41,31 +81,6 @@ def fetch_events_from_statsbomb(match_id):
         return events_df
     else:
         raise ValueError(f"Failed to fetch events for match {match_id}, status code: {response.status_code}")
-
-# Google Drive base URL
-base_url = "https://drive.google.com/uc?id="
-
-# File IDs for Google Drive
-file_ids = {
-    "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
-    "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
-    "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
-    "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
-    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",
-    "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
-}
-
-# Function to download file from Google Drive
-def download_file_from_drive(file_id, destination_file_name):
-    """Download a file from Google Drive using its ID."""
-    url = f"{base_url}{file_id}&export=download"
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(destination_file_name, 'wb') as f:
-            f.write(response.content)
-        print(f"Downloaded {destination_file_name} from Google Drive.")
-    else:
-        print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
 
 # Function to load data
 @st.cache_data
@@ -96,11 +111,9 @@ def load_data():
         # Handle JSON files
         elif file_name.endswith('.json'):
             if key == "wyscout_physical_data":
-                with open(file_name, "r") as f:
-                    wyscout_physical_data = json.load(f)
+                wyscout_physical_data = load_json_file(file_name)
             elif key == "player_stats":
-                with open(file_name, "r") as f:
-                    player_stats = json.load(f)
+                player_stats = load_json_file(file_name)
 
     # Fetch events from StatsBomb API
     home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
@@ -535,6 +548,7 @@ else:
             # Generate and display plots
             fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes)
             st.pyplot(fig)
+
 
 
 
