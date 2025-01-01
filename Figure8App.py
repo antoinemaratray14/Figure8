@@ -124,6 +124,9 @@ def load_data():
         match_id = match_info['statsbomb_id'].values[0]
         sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
         
+        st.write(sb_events.head())  # This will output the first few rows of the dataframe to the Streamlit UI
+
+        
         # Ensure the 'player' key exists and create the 'player_name' column
         if 'player' in sb_events.columns:
             sb_events['player_name'] = sb_events['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
