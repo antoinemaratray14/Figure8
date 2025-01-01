@@ -19,6 +19,7 @@ from highlight_text import fig_text
 import requests
 from io import StringIO
 import warnings
+import ijson
 import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
@@ -48,9 +49,14 @@ def load_data():
         return None
 
     def load_large_json(filepath):
-        """Load a large JSON file in chunks."""
+        """Incrementally load a large JSON file into a Pandas DataFrame."""
+        rows = []
         with open(filepath, "r") as f:
-            return pd.read_json(f, lines=True)  # Adjust if your JSON isn't line-delimited
+            # Parse the JSON incrementally
+            parser = ijson.items(f, "item")  # Adjust the key based on your JSON structure
+            for item in parser:
+                rows.append(item)
+        return pd.DataFrame(rows)
 
     # Google Drive file IDs
     file_ids = {
@@ -78,7 +84,7 @@ def load_data():
     # Load files into variables
     consolidated_matches = pd.read_csv(paths["consolidated_matches"])
     player_mapping_with_names = pd.read_csv(paths["player_mapping_with_names"])
-    sb_events_df = load_large_json(paths["sb_events"])
+    sb_events_df = load_large_json(paths["sb_events"])  # Use the updated function
     with open(paths["player_stats"], "r") as f:
         player_stats_data = json.load(f)
     with open(paths["wyscout_physical_data"], "r") as f:
