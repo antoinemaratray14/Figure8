@@ -517,39 +517,33 @@ home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_
 away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
-
 if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
-    match_id = match_info['statsbomb_id'].values[0]
-    players = events_df[events_df['match_id'] == match_id]['player.name'].unique()
-    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)
+    match_id = match_info['statsbomb_id'].values[0]  # Use statsbomb_id as match_id
+    events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
+    
+    # Extract player names from the events for the selected match
+    players = events_df['player.name'].unique()  # List of player names from the events
+    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
         with st.spinner("Generating plots..."):
+            # Determine the opponent based on the selected home and away teams
             opponent = match_info['away_team'].values[0] if home_team == match_info['home_team'].values[0] else match_info['home_team']
             
-            # Check if season_stats is a DataFrame, and convert if necessary
-            if not isinstance(season_stats, pd.DataFrame):
-                season_stats = pd.DataFrame(season_stats)
+            # Filter events for the selected player and match
+            filtered_events = events_df[events_df['player.name'] == player]
     
-            # Ensure the columns exist in season_stats
-            if 'match_id' in season_stats.columns and 'player_name' in season_stats.columns:
-                player_match = season_stats[(season_stats['match_id'] == match_id) & (season_stats['player_name'] == player)]
+            # Ensure the player's match stats are available for visualization
+            season_stats_for_player = season_stats[season_stats['player_name'] == player]
+            if player in season_stats_for_player['player_name'].values:
+                player_match = season_stats_for_player[season_stats_for_player['match_id'] == match_id]
+                player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
             else:
-                st.error("The 'match_id' or 'player_name' column is missing in the season_stats data.")
+                st.error(f"No season stats found for player: {player}")
                 st.stop()
-    
-            # Extract player minutes
-            player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
             
-            # Filter events
-            filtered_events = events_df[(events_df['match_id'] == match_id) & (events_df['player.name'] == player)]
-    
-            # Generate and display plots
+            # Generate and display the player's match dashboard visualization
             fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes)
             st.pyplot(fig)
-
-
-
-
