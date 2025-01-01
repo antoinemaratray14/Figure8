@@ -509,8 +509,8 @@ st.title("Figure 8: Post-Match Dashboard")
 consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscout_data = load_data()
 
 # Sidebar Inputs with unique keys
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select")
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select")
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key="home_team_select_unique")
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key="away_team_select_unique")
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -527,7 +527,7 @@ else:
     
     # Extract player names from the events for the selected match
     players = events_df['player_name'].dropna().unique()  # List of player names from the events
-    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select")  # Dropdown for player selection
+    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key="player_select_unique")  # Dropdown for player selection
 
     if st.button("Generate Visualization"):
         with st.spinner("Generating plots..."):
@@ -547,7 +547,3 @@ else:
             fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
             st.pyplot(fig)
 
-            
-            # Generate and display the player's match dashboard visualization
-            fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes)
-            st.pyplot(fig)
