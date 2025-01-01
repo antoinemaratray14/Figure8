@@ -25,74 +25,33 @@ import os
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name, progress_bar=None):
-    """Download a file from Google Cloud Storage."""
-    
-    # Explicitly pass the project ID here (replace with your actual project ID)
-    project_id = 'figure8-446513'  # Your project ID here
-    # Initialize the storage client (pass project_id)
-    client = storage.Client(project=project_id)
+# StatsBomb API URL and credentials
+BASE_URL = "https://data.statsbomb.com/api/v8/events/"
+USERNAME = "admin@figure8.com"
+PASSWORD = "QCOKgqp1"
 
-    # Access the bucket and the file
-    bucket = client.get_bucket(bucket_name)
-    blob = bucket.blob(source_blob_name)
+def fetch_events_from_statsbomb(match_id):
+    url = f"{BASE_URL}{match_id}"
+    response = requests.get(url, auth=(USERNAME, PASSWORD))  # Use the provided credentials
 
-    # Set up the progress tracking for the download
-    total_size = blob.size
-    progress_bar.progress(0)
+    if response.status_code == 200:
+        events = response.json()  # Convert the response to JSON
+        events_df = pd.DataFrame(events)  # Convert to pandas DataFrame
+        return events_df
+    else:
+        raise ValueError(f"Failed to fetch events for match {match_id}, status code: {response.status_code}")
 
-    # Download the file in chunks
-    with open(destination_file_name, 'wb') as file:
-        for chunk in blob.download_as_bytes(chunk_size=1024 * 1024):
-            file.write(chunk)
-            # Update the progress bar based on the downloaded chunk size
-            downloaded_size = file.tell()
-            progress_bar.progress(int((downloaded_size / total_size) * 100))
 
-    print(f"Downloaded {source_blob_name} to {destination_file_name}.")
-
-# Function to load large JSON files from GCS incrementally with progress
-def load_large_json_from_gcs(bucket_name, json_file_name, progress_bar=None):
-    """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
-    
-    # Explicitly pass the project ID here (replace with your actual project ID)
-    project_id = 'figure8-446513'  # Your project ID here
-    # Initialize the storage client (pass project_id)
-    client = storage.Client(project=project_id)
-    
-    # Access the bucket and the JSON file
-    bucket = client.get_bucket(bucket_name)
-    blob = bucket.blob(json_file_name)
-    
-    # Download the file as text
-    data = blob.download_as_text()
-
-    # Calculate the total number of items in the JSON file
-    total_items = sum(1 for _ in ijson.items(data, "item"))
-    progress_bar.progress(0)
-
-    # Parse the JSON file incrementally
-    rows = []
-    parser = ijson.items(data, "item")  # Adjust the key based on your JSON structure
-    for i, item in enumerate(parser):
-        rows.append(item)
-        # Update the progress bar based on the number of items processed
-        progress_bar.progress(int(((i + 1) / total_items) * 100))
-    
-    # Return the data as a Pandas DataFrame
-    return pd.DataFrame(rows)
-
-# Function to load data from GCS with caching
 @st.cache_data
 def load_data():
-    # Your Google Cloud Storage bucket name
+    # Your Google Cloud Storage bucket name (if still needed)
     bucket_name = 'figure8data'  # Replace with your actual bucket name
 
-    # File paths in Google Cloud Storage (ensure these match the file names in your GCS bucket)
+    # File paths in Google Cloud Storage (if still used)
     files = {
         "consolidated_matches": "consolidated_matches.csv",
         "player_mapping_with_names": "player_mapping_with_names.csv",
-        "sb_events": "SB_Events.json",
+        # Remove sb_events as we're fetching from API now
         "player_stats": "player_stats.json",
         "wyscout_physical_data": "Wyscout_PhysicalData.json",
     }
@@ -104,18 +63,21 @@ def load_data():
     player_stats = None
     wyscout_physical_data = None
 
-    # Create a progress bar in Streamlit
-    progress_bar = st.progress(0)
-    total_files = len(files)
-    
-    # Download each file from GCS (public access)
-    for i, (key, file_name) in enumerate(files.items()):
-        progress_bar.progress(int(((i + 1) / total_files) * 100))  # Update progress bar
+    # Download each file or fetch data from API
+    for key, file_name in files.items():
+        if key == "sb_events":  # Special case for fetching from API
+            # Fetch the match ID for the selected home and away teams
+            home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
+            away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
+            match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
-        if key == "sb_events":  # Special case for large JSON file
-            sb_events = load_large_json_from_gcs(bucket_name, file_name, progress_bar)
+            if match_info.empty:
+                st.error("No match found for the selected teams.")
+            else:
+                match_id = match_info['statsbomb_id'].values[0]
+                sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
         else:
-            download_file_from_gcs(bucket_name, file_name, file_name, progress_bar)
+            download_file_from_gcs(bucket_name, file_name, file_name)
             if file_name.endswith('.csv'):
                 if key == "consolidated_matches":
                     consolidated_matches = pd.read_csv(file_name)
@@ -129,12 +91,7 @@ def load_data():
                     with open(file_name, "r") as f:
                         wyscout_physical_data = json.load(f)
 
-    progress_bar.progress(100)  # Set progress bar to 100% after loading is complete
-
-    # Return the loaded data
-    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_data
-    
-    
+    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
