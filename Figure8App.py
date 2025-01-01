@@ -25,45 +25,33 @@ from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
 @st.cache_data
-def load_data(home_team, away_team):
-    def download_file(file_id, destination):
-        """Download a large file from Google Drive."""
-        base_url = "https://drive.google.com/uc?export=download"
-        session = requests.Session()
-        response = session.get(base_url, params={"id": file_id}, stream=True)
-        token = get_confirm_token(response)
-        if token:
-            response = session.get(base_url, params={"id": file_id, "confirm": token}, stream=True)
-
-        with open(destination, "wb") as f:
-            for chunk in tqdm(response.iter_content(32768), desc=f"Downloading {destination}"):
-                if chunk:
-                    f.write(chunk)
-
-    def get_confirm_token(response):
-        """Get the confirm token from the response cookies if the file is large."""
-        for key, value in response.cookies.items():
-            if key.startswith("download_warning"):
-                return value
-        return None
-
-    def filter_large_json_by_match(file_path, match_id):
-        """Efficiently filter events by match_id from a large JSON file."""
-        events = []
-        with open(file_path, 'r') as f:
-            parser = ijson.items(f, "item")
-            for item in parser:
-                if item.get("match_id") == match_id:
-                    events.append(item)
-                # Break early
-                if events and item.get("match_id") != match_id:
-                    break
-        return pd.DataFrame(events)
-
+def load_initial_data():
     # Google Drive file IDs
     file_ids = {
         "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
         "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+    }
+
+    # Temporary file paths
+    paths = {
+        "consolidated_matches": "consolidated_matches.csv",
+        "player_mapping_with_names": "player_mapping_with_names.csv",
+    }
+
+    # Download necessary files
+    for key, file_id in file_ids.items():
+        if not os.path.exists(paths[key]):
+            download_file(file_id, paths[key])
+
+    # Load and return initial datasets
+    consolidated_matches = pd.read_csv(paths["consolidated_matches"])
+    player_mapping_with_names = pd.read_csv(paths["player_mapping_with_names"])
+    return consolidated_matches, player_mapping_with_names
+
+@st.cache_data
+def load_match_data(match_id):
+    # Google Drive file IDs
+    file_ids = {
         "sb_events": "1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
         "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
         "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
@@ -71,43 +59,26 @@ def load_data(home_team, away_team):
 
     # Temporary file paths
     paths = {
-        "consolidated_matches": "consolidated_matches.csv",
-        "player_mapping_with_names": "player_mapping_with_names.csv",
         "sb_events": "sb_events.json",
         "player_stats": "player_stats.json",
         "wyscout_physical_data": "wyscout_physical_data.json",
     }
 
-    # Download files if not already present
+    # Download necessary files
     for key, file_id in file_ids.items():
         if not os.path.exists(paths[key]):
             download_file(file_id, paths[key])
 
-    # Load CSV data
-    consolidated_matches = pd.read_csv(paths["consolidated_matches"])
-    player_mapping_with_names = pd.read_csv(paths["player_mapping_with_names"])
-
-    # Determine match_id from home and away teams
-    match_row = consolidated_matches[
-        (consolidated_matches["home_team"] == home_team) &
-        (consolidated_matches["away_team"] == away_team)
-    ]
-
-    if match_row.empty:
-        raise ValueError(f"No match found for {home_team} vs {away_team}.")
-    match_id = match_row["match_id"].iloc[0]
-
-    # Filter JSON data for the selected match_id
+    # Filter the large JSON file for the match ID
     events_df = filter_large_json_by_match(paths["sb_events"], match_id)
 
-    # Load remaining JSON files
+    # Load the remaining JSON data
     with open(paths["player_stats"], "r") as f:
         player_stats_data = json.load(f)
     with open(paths["wyscout_physical_data"], "r") as f:
         wyscout_data = json.load(f)
 
-    return consolidated_matches, player_mapping_with_names, events_df, player_stats_data, wyscout_data
-
+    return events_df, player_stats_data, wyscout_data
 
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
