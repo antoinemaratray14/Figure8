@@ -25,7 +25,33 @@ warnings.filterwarnings('ignore')
 
 @st.cache_data
 def load_data():
-    # Google Drive file IDs
+    def download_from_google_drive(file_id, destination):
+        """Download a file from Google Drive and save it to the destination."""
+        base_url = "https://drive.google.com/uc?export=download"
+        session = requests.Session()
+        
+        # Start the download process
+        response = session.get(base_url, params={'id': file_id}, stream=True)
+        token = get_confirm_token(response)
+        
+        if token:
+            params = {'id': file_id, 'confirm': token}
+            response = session.get(base_url, params=params, stream=True)
+        
+        # Write the file to the destination
+        with open(destination, "wb") as f:
+            for chunk in response.iter_content(chunk_size=32768):
+                if chunk:
+                    f.write(chunk)
+
+    def get_confirm_token(response):
+        """Get the confirm token from cookies if the file is too large."""
+        for key, value in response.cookies.items():
+            if key.startswith('download_warning'):
+                return value
+        return None
+
+    # File IDs for Google Drive
     file_ids = {
         "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
         "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
@@ -34,37 +60,35 @@ def load_data():
         "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
     }
 
-    # Local file paths
-    file_paths = {
-        key: f"{key}.json" if key in ["sb_events", "player_stats", "wyscout_physical_data"] else f"{key}.csv"
-        for key in file_ids
-    }
+    # Temporary storage paths
+    consolidated_matches_path = "consolidated_matches.csv"
+    player_mapping_path = "player_mapping_with_names.csv"
+    sb_events_path = "sb_events.json"
+    player_stats_path = "player_stats.json"
+    wyscout_physical_data_path = "wyscout_physical_data.json"
 
-    # Download files using gdown
-    for key, file_id in file_ids.items():
-        url = f"https://drive.google.com/uc?id={file_id}"
-        output_path = file_paths[key]
-        if not os.path.exists(output_path):  # Only download if the file doesn't exist
-            gdown.download(url, output_path, quiet=False)
+    # Download the files
+    download_from_google_drive(file_ids["consolidated_matches"], consolidated_matches_path)
+    download_from_google_drive(file_ids["player_mapping_with_names"], player_mapping_path)
+    download_from_google_drive(file_ids["sb_events"], sb_events_path)
+    download_from_google_drive(file_ids["player_stats"], player_stats_path)
+    download_from_google_drive(file_ids["wyscout_physical_data"], wyscout_physical_data_path)
 
-    # Load CSV files
-    consolidated_matches = pd.read_csv(file_paths["consolidated_matches"])
-    player_mapping_with_names = pd.read_csv(file_paths["player_mapping_with_names"])
-
-    # Load JSON files
-    with open(file_paths["sb_events"], "r") as f:
-        sb_events_data = json.load(f)
-
-    with open(file_paths["player_stats"], "r") as f:
-        player_stats_data = json.load(f)
-
-    with open(file_paths["wyscout_physical_data"], "r") as f:
-        wyscout_data = json.load(f)
+    # Load data into memory
+    consolidated_matches = pd.read_csv(consolidated_matches_path)
+    player_mapping_with_names = pd.read_csv(player_mapping_path)
+    with open(sb_events_path, 'r') as file:
+        sb_events_data = json.load(file)
+    with open(player_stats_path, 'r') as file:
+        player_stats_data = json.load(file)
+    with open(wyscout_physical_data_path, 'r') as file:
+        wyscout_data = json.load(file)
 
     # Convert events JSON data into DataFrame
     events_df = pd.DataFrame(sb_events_data)
 
     return consolidated_matches, player_mapping_with_names, events_df, player_stats_data, wyscout_data
+
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
