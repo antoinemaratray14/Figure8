@@ -20,6 +20,7 @@ from google.cloud import storage
 from google.oauth2 import service_account
 import io
 import warnings
+import requests
 import ijson
 import os
 from tqdm import tqdm
