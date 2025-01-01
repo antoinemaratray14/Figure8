@@ -19,33 +19,52 @@ from highlight_text import fig_text
 import requests
 from io import StringIO
 import warnings
+import gdown
+import os
 warnings.filterwarnings('ignore')
 
 @st.cache_data
 def load_data():
-    # File URLs (use raw download links)
-    urls = {
-        "consolidated_matches": "https://drive.google.com/uc?id=11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
-        "player_mapping_with_names": "https://drive.google.com/uc?id=1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
-        "sb_events": "https://drive.google.com/uc?id=1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
-        "player_stats": "https://drive.google.com/uc?id=1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
-        "wyscout_physical_data": "https://drive.google.com/uc?id=1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
+    # Google Drive file IDs
+    file_ids = {
+        "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+        "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+        "sb_events": "1tQ-i308GeSiawPIk5rjdywyJbmsA0yqo",
+        "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+        "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd"
     }
 
+    # Local file paths
+    file_paths = {
+        key: f"{key}.json" if key in ["sb_events", "player_stats", "wyscout_physical_data"] else f"{key}.csv"
+        for key in file_ids
+    }
+
+    # Download files using gdown
+    for key, file_id in file_ids.items():
+        url = f"https://drive.google.com/uc?id={file_id}"
+        output_path = file_paths[key]
+        if not os.path.exists(output_path):  # Only download if the file doesn't exist
+            gdown.download(url, output_path, quiet=False)
+
     # Load CSV files
-    consolidated_matches = pd.read_csv(urls["consolidated_matches"])
-    player_mapping_with_names = pd.read_csv(urls["player_mapping_with_names"])
+    consolidated_matches = pd.read_csv(file_paths["consolidated_matches"])
+    player_mapping_with_names = pd.read_csv(file_paths["player_mapping_with_names"])
 
     # Load JSON files
-    sb_events_data = requests.get(urls["sb_events"]).json()
-    player_stats_data = requests.get(urls["player_stats"]).json()
-    wyscout_data = requests.get(urls["wyscout_physical_data"]).json()
+    with open(file_paths["sb_events"], "r") as f:
+        sb_events_data = json.load(f)
+
+    with open(file_paths["player_stats"], "r") as f:
+        player_stats_data = json.load(f)
+
+    with open(file_paths["wyscout_physical_data"], "r") as f:
+        wyscout_data = json.load(f)
 
     # Convert events JSON data into DataFrame
     events_df = pd.DataFrame(sb_events_data)
 
     return consolidated_matches, player_mapping_with_names, events_df, player_stats_data, wyscout_data
-
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
