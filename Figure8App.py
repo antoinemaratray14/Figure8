@@ -28,8 +28,10 @@ warnings.filterwarnings('ignore')
 def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name, progress_bar=None):
     """Download a file from Google Cloud Storage."""
     
-    # Initialize the storage client (No need for authentication since it's public)
-    client = storage.Client()
+    # Explicitly pass the project ID here (replace with your actual project ID)
+    project_id = 'figure8-446513'  # Your project ID here
+    # Initialize the storage client (pass project_id)
+    client = storage.Client(project=project_id)
 
     # Access the bucket and the file
     bucket = client.get_bucket(bucket_name)
@@ -53,8 +55,10 @@ def download_file_from_gcs(bucket_name, source_blob_name, destination_file_name,
 def load_large_json_from_gcs(bucket_name, json_file_name, progress_bar=None):
     """Incrementally load a large JSON file into a Pandas DataFrame from Google Cloud Storage."""
     
-    # Initialize the storage client (No authentication required)
-    client = storage.Client()
+    # Explicitly pass the project ID here (replace with your actual project ID)
+    project_id = 'figure8-446513'  # Your project ID here
+    # Initialize the storage client (pass project_id)
+    client = storage.Client(project=project_id)
     
     # Access the bucket and the JSON file
     bucket = client.get_bucket(bucket_name)
@@ -128,7 +132,8 @@ def load_data():
     progress_bar.progress(100)  # Set progress bar to 100% after loading is complete
 
     # Return the loaded data
-    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_data
+    
     
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
