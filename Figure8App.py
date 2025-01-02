@@ -23,7 +23,7 @@ import os
 warnings.filterwarnings('ignore')
 
 
-BASE_URL = "https://data.statsbomb.com/api/v8/events/"
+base_url = "https://data.statsbomb.com/api/v8/events/"
 
 # File IDs for Google Drive
 file_ids = {
