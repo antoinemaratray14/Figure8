@@ -32,7 +32,6 @@ file_ids = {
     "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
 }
 
-# Function to download file from Google Drive
 def download_file_from_drive(file_id, destination_file_name):
     """Download a file from Google Drive using its ID."""
     url = f"{base_url}{file_id}&export=download"
@@ -44,42 +43,38 @@ def download_file_from_drive(file_id, destination_file_name):
         print(f"Downloaded {destination_file_name} from Google Drive.")
     else:
         print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
-        print(f"Response content: {response.content[:100]}")  # Print first 100 characters of response
         return None
     return destination_file_name
 
-# Function to load JSON file
 def load_json_file(file_name):
     """Load a JSON file and handle any issues."""
     try:
         with open(file_name, "r") as f:
             data = json.load(f)
-        print(f"Successfully loaded JSON from {file_name}")
         return data
     except json.JSONDecodeError as e:
         print(f"Failed to decode JSON from {file_name}: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    return None
+        return None
 
-# StatsBomb API URL and credentials
-BASE_URL = "https://data.statsbomb.com/api/v8/events/"
-USERNAME = "admin@figure8.com"
-PASSWORD = "QCOKgqp1"
-
-# Function to fetch events from StatsBomb API
 def fetch_events_from_statsbomb(match_id):
-    url = f"{BASE_URL}{match_id}"
-    response = requests.get(url, auth=(USERNAME, PASSWORD))  # Use the provided credentials
-
+    """Fetch events for a given match from StatsBomb API."""
+    base_url = "https://api.statsbomb.com/api/v1/events/"
+    url = f"{base_url}{match_id}/"
+    
+    response = requests.get(url)
+    
     if response.status_code == 200:
-        events = response.json()  # Convert the response to JSON
-        events_df = pd.DataFrame(events)  # Convert to pandas DataFrame
-        return events_df
+        try:
+            events_data = response.json()
+            events_df = pd.json_normalize(events_data)
+            return events_df
+        except ValueError as e:
+            print(f"Error parsing JSON data: {e}")
+            return pd.DataFrame()
     else:
-        raise ValueError(f"Failed to fetch events for match {match_id}, status code: {response.status_code}")
+        print(f"Failed to fetch events. Status code: {response.status_code}")
+        return pd.DataFrame()
 
-# Function to load data
 @st.cache_data
 def load_data():
     # Initialize variables
@@ -89,90 +84,59 @@ def load_data():
     player_stats = None
     wyscout_physical_data = None
 
-    # Download each file from Google Drive
     for key, file_id in file_ids.items():
         file_name = f"{key}.csv" if key not in ["player_stats", "wyscout_physical_data"] else f"{key}.json"
-        download_file_from_drive(file_id, file_name)  # Download file from Google Drive
+        download_file_from_drive(file_id, file_name)
 
-        # Handle CSV files
         if file_name.endswith('.csv'):
             if key == "consolidated_matches":
                 consolidated_matches = pd.read_csv(file_name)
             elif key == "player_mapping_with_names":
                 player_mapping_with_names = pd.read_csv(file_name)
-            elif key == "mapping_matches":
-                mapping_matches = pd.read_csv(file_name)
-            elif key == "mapping_players":
-                mapping_players = pd.read_csv(file_name)
-
-        # Handle JSON files
         elif file_name.endswith('.json'):
             if key == "wyscout_physical_data":
                 wyscout_physical_data = load_json_file(file_name)
             elif key == "player_stats":
                 player_stats = load_json_file(file_name)
 
-    # Fetch events from StatsBomb API
-    home_team_key = "home_team_select_unique_1"
-    away_team_key = "away_team_select_unique_1"
-    player_select_key = "player_select_unique_1"
-
-    # Sidebar Inputs with unique keys
-    home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
-    away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
-    match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
-
-    if match_info.empty:
-        st.error("No match found for the selected teams.")
-    else:
-        match_id = match_info['statsbomb_id'].values[0]
-        sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-        
-        # Fix: Check if 'player' exists and create 'player_name' column
-        sb_events = fix_player_name_column(sb_events)
-        
-        # Extract event types correctly (type.name -> 'type' key in the nested structure)
-        sb_events['event_type'] = sb_events['type'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
-        
-        # Handle player positions and locations (x, y)
-        sb_events[['x', 'y']] = pd.DataFrame(sb_events['location'].apply(lambda loc: loc[:2] if isinstance(loc, list) and len(loc) == 2 else [None, None]).tolist(), index=sb_events.index)
-
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
-    
-# Ensure player_name is in the events
-def fix_player_name_column(events_df):
-    if 'player' in events_df.columns:
-        # Extract player names from the nested 'player' structure
-        events_df['player_name'] = events_df['player'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
-    else:
-        st.error("The 'player' column does not exist in the events data.")
-    return events_df
 
+def filter_events(events_df):
+    events_df = events_df[events_df["type"].isin([
+        "Pass", "Dribble", "Carry", "Ball Receipt", "Block", "Interception", "Shot"
+    ])]
+
+    events_df = events_df[events_df['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)]
+
+    events_df[['x', 'y']] = pd.DataFrame(events_df['location'].tolist(), index=events_df.index)
+    return events_df
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
         filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
     ]
+    
+    # Parse start location of events
     filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
 
-    # Extract 'event_type' based on 'type' dictionary (adjusted for correct handling of 'type')
-    filtered_events['event_type'] = filtered_events['type'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+    # Extract 'event_type' based on 'type' dictionary (assuming 'type' is always a dictionary with a 'name' key)
+    filtered_events['event_type'] = filtered_events['type'].apply(lambda x: x.get('name') if isinstance(x, dict) else None)
 
     # Extract 'end_x' and 'end_y' for passes and carries
-    filtered_events['end_x'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][0] if row['event_type'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
-            row['carry.end_location'][0] if row['event_type'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
-        ),
-        axis=1
-    )
-    filtered_events['end_y'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][1] if row['event_type'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
-            row['carry.end_location'][1] if row['event_type'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
-        ),
-        axis=1
-    )
+    def get_end_location(row, event_type):
+        if event_type == 'Pass' and isinstance(row.get('pass.end_location'), list):
+            return row['pass.end_location'][0], row['pass.end_location'][1]
+        elif event_type == 'Carry' and isinstance(row.get('carry.end_location'), list):
+            return row['carry.end_location'][0], row['carry.end_location'][1]
+        else:
+            return None, None
 
+    # Apply the get_end_location function to get 'end_x' and 'end_y' values
+    filtered_events[['end_x', 'end_y']] = filtered_events.apply(
+        lambda row: pd.Series(get_end_location(row, row['event_type'])), axis=1
+    )
+    
     # Set up the 2x4 grid for the plots
     fig = plt.figure(figsize=(20, 28))
     gs = GridSpec(4, 2, figure=fig, height_ratios=[5, 5, 5, 6])
@@ -530,46 +494,34 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 st.title("Figure 8: Post-Match Dashboard")
 
 # Load Data
-consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscout_data = load_data()
+consolidated_matches, player_mapping_with_names, sb_events, season_stats, wyscout_data = load_data()
 
-# Sidebar Inputs - We define these here, so we can use them later to dynamically create keys
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
+# Sidebar Inputs with unique keys
+home_team_key = f"home_team_select"
+away_team_key = f"away_team_select"
+player_select_key = f"player_select"
 
-# Match info for selected teams
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
     match_id = match_info['statsbomb_id'].values[0]
-    events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-
-    # Fix: Check if 'player' exists and create 'player_name' column
-    events_df = fix_player_name_column(events_df)
+    sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
+    
+    # Ensure the events contain player names
+    sb_events['player_name'] = sb_events['player.name']  # Ensure 'player_name' column exists
     
     # Extract player names from the events for the selected match
-    players = events_df['player_name'].dropna().unique()  # List of player names from the events
-    player_select_key = f"player_select_{home_team}_{away_team}"  # Unique key for player selection
+    players = sb_events['player_name'].dropna().unique()  # List of player names from the events
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
 
-    # Ensure 'season_stats' is a DataFrame
-    if isinstance(season_stats, list):
-        season_stats = pd.DataFrame(season_stats)  # Convert to DataFrame if it's a list
-
-    # Ensure the player's match stats are available for visualization
-    season_stats_for_player = season_stats[season_stats['player_name'] == player]
-    if player in season_stats_for_player['player_name'].values:
-        player_match = season_stats_for_player[season_stats_for_player['match_id'] == match_id]
-        player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
-    else:
-        st.error(f"No season stats found for player: {player}")
-        st.stop()
-
-    # Define filtered_events based on the selected player and match
-    filtered_events = events_df[events_df['player_name'] == player]
+    # Filter the events for the selected player
+    filtered_events = filter_events(sb_events[sb_events['player_name'] == player])
 
     # Generate and display the player's match dashboard visualization
-    fig = generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, home_team, player_minutes)
+    fig = generate_full_visualization(filtered_events, sb_events, season_stats, match_id, player, wyscout_data, home_team, 90)  # Example for 90 minutes played
     st.pyplot(fig)
 
