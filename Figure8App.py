@@ -36,67 +36,73 @@ file_ids = {
     "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
 }
 
-# Function to download file directly from Google Drive
-def download_file_from_drive(file_id):
-    url = f"{BASE_URL}{file_id}&export=download"
+def download_file_from_drive(file_id, destination_file_name):
+    """Download a file from Google Drive using its ID."""
+    url = f"https://drive.google.com/uc?id={file_id}&export=download"
     response = requests.get(url)
     
     if response.status_code == 200:
-        st.write(f"Successfully downloaded the file with ID: {file_id}")
-        return response.content
+        with open(destination_file_name, 'wb') as f:
+            f.write(response.content)
+        print(f"Downloaded {destination_file_name} from Google Drive.")
+        return destination_file_name
     else:
-        st.write(f"Failed to download file with ID: {file_id}. Status Code: {response.status_code}")
+        print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
         return None
 
-# Function to load CSV data into pandas DataFrame
 def load_data():
+    # Initialize variables
     consolidated_matches = None
     player_mapping_with_names = None
     sb_events = None
     player_stats = None
     wyscout_physical_data = None
-    
-    # Iterate over the file_ids and download each file
+
     for key, file_id in file_ids.items():
-        st.write(f"Attempting to download {key}...")
-
-        # Download the file content from Google Drive
-        file_content = download_file_from_drive(file_id)
-
-        if file_content:
-            try:
-                # Attempt to read the file content as CSV (for .csv files)
-                if key != "player_stats" and key != "wyscout_physical_data":
-                    df = pd.read_csv(pd.compat.StringIO(file_content.decode("utf-8")))
-                else:
-                    # For JSON files, load them directly as JSON
-                    df = json.loads(file_content.decode("utf-8"))
-
-                # Check if the DataFrame loaded correctly
-                if not df.empty:
-                    st.write(f"{key} loaded successfully!")
+        file_name = f"{key}.csv" if key not in ["player_stats", "wyscout_physical_data"] else f"{key}.json"
+        downloaded_file = download_file_from_drive(file_id, file_name)
+        
+        if downloaded_file:
+            st.write(f"File {file_name} downloaded successfully.")
+            
+            if file_name.endswith('.csv'):
+                # Check if the file is readable and display contents
+                try:
+                    temp_df = pd.read_csv(file_name)
+                    st.write(f"First few rows of {file_name}:", temp_df.head())
                     if key == "consolidated_matches":
-                        consolidated_matches = df
-                    # You can add further checks for other files if needed
-                else:
-                    st.write(f"{key} is empty or could not be processed.")
-            except Exception as e:
-                st.write(f"Error reading the file {key}: {e}")
+                        consolidated_matches = temp_df
+                    elif key == "player_mapping_with_names":
+                        player_mapping_with_names = temp_df
+                except Exception as e:
+                    st.write(f"Error reading {file_name}: {e}")
+                    
+            elif file_name.endswith('.json'):
+                # Similar checks for JSON files
+                try:
+                    with open(file_name, 'r') as f:
+                        data = json.load(f)
+                    st.write(f"First few entries of {file_name}:", data[:5] if isinstance(data, list) else data)
+                    if key == "wyscout_physical_data":
+                        wyscout_physical_data = data
+                    elif key == "player_stats":
+                        player_stats = data
+                except Exception as e:
+                    st.write(f"Error reading {file_name}: {e}")
         else:
-            st.write(f"Failed to download or read {key}.")
-
+            st.write(f"Failed to download {file_name}")
+    
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
 
-# Now call the load_data function to download and read the file
-consolidated_matches, player_mapping_with_names, sb_events, season_stats, wyscout_physical_data = load_data()
+# Once we load data, you can verify:
+consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
 
-# If consolidated_matches DataFrame is loaded successfully, display its columns and first few rows
-if consolidated_matches is not None:
-    st.write("Columns in consolidated_matches DataFrame:")
-    st.write(consolidated_matches.columns)
-
-    st.write("First few rows of consolidated_matches DataFrame:")
-    st.dataframe(consolidated_matches.head())
+# Check if consolidated_matches is properly loaded
+if consolidated_matches is None:
+    st.write("Error: 'consolidated_matches' could not be loaded.")
+else:
+    st.write("Columns in consolidated_matches:", consolidated_matches.columns)
+    st.write("First few rows of consolidated_matches:", consolidated_matches.head())
 
 def filter_events(events_df):
     events_df = events_df[events_df["type"].isin([
