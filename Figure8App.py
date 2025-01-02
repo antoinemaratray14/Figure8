@@ -20,7 +20,10 @@ import warnings
 import os
 warnings.filterwarnings('ignore')
 
-base_url = "https://drive.google.com/uc?id="
+
+BASE_URL = "https://data.statsbomb.com/api/v8/events/"
+USERNAME = "admin@figure8.com"
+PASSWORD = "QCOKgqp1"
 
 # File IDs for Google Drive
 file_ids = {
@@ -56,24 +59,24 @@ def load_json_file(file_name):
         print(f"Failed to decode JSON from {file_name}: {e}")
         return None
 
-def fetch_events_from_statsbomb(match_id):
-    """Fetch events for a given match from StatsBomb API."""
-    base_url = "https://api.statsbomb.com/api/v1/events/"
-    url = f"{base_url}{match_id}/"
-    
-    response = requests.get(url)
-    
+def fetch_events_from_statsbomb(match_id, username, password):
+    """Fetch events for a given match from StatsBomb API using basic authentication."""
+    url = f"{BASE_URL}{match_id}/"
+
+    # Perform the GET request with basic authentication
+    response = requests.get(url, auth=HTTPBasicAuth(username, password))
+
     if response.status_code == 200:
         try:
-            events_data = response.json()
-            events_df = pd.json_normalize(events_data)
+            events_data = response.json()  # Assuming response is in JSON format
+            events_df = pd.json_normalize(events_data)  # Flatten the JSON data into a DataFrame
             return events_df
         except ValueError as e:
             print(f"Error parsing JSON data: {e}")
-            return pd.DataFrame()
+            return pd.DataFrame()  # Return empty DataFrame if there's an error
     else:
         print(f"Failed to fetch events. Status code: {response.status_code}")
-        return pd.DataFrame()
+        return pd.DataFrame()  # Return empty DataFrame in case of failure
 
 @st.cache_data
 def load_data():
@@ -509,7 +512,7 @@ if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
     match_id = match_info['statsbomb_id'].values[0]
-    sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
+    sb_events = fetch_events_from_statsbomb(match_id, USERNAME, PASSWORD)  # Fetch events using the match ID from API
     
     # Ensure the events contain player names
     sb_events['player_name'] = sb_events['player.name']  # Ensure 'player_name' column exists
@@ -524,4 +527,3 @@ else:
     # Generate and display the player's match dashboard visualization
     fig = generate_full_visualization(filtered_events, sb_events, season_stats, match_id, player, wyscout_data, home_team, 90)  # Example for 90 minutes played
     st.pyplot(fig)
-
