@@ -156,16 +156,19 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     ]
     filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
 
+    # Extract 'event_type' based on 'type' dictionary (adjusted for correct handling of 'type')
+    filtered_events['event_type'] = filtered_events['type'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
+
     # Extract 'end_x' and 'end_y' for passes and carries
     filtered_events['end_x'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][0] if isinstance(row.get('pass.end_location'), list) and row.get('type', {}).get('name') == 'Pass' else (
-            row['carry.end_location'][0] if isinstance(row.get('carry.end_location'), list) and row.get('type', {}).get('name') == 'Carry' else None
+        lambda row: row['pass.end_location'][0] if row['event_type'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
+            row['carry.end_location'][0] if row['event_type'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
         ),
         axis=1
     )
     filtered_events['end_y'] = filtered_events.apply(
-        lambda row: row['pass.end_location'][1] if isinstance(row.get('pass.end_location'), list) and row.get('type', {}).get('name') == 'Pass' else (
-            row['carry.end_location'][1] if isinstance(row.get('carry.end_location'), list) and row.get('type', {}).get('name') == 'Carry' else None
+        lambda row: row['pass.end_location'][1] if row['event_type'] == 'Pass' and isinstance(row.get('pass.end_location'), list) else (
+            row['carry.end_location'][1] if row['event_type'] == 'Carry' and isinstance(row.get('carry.end_location'), list) else None
         ),
         axis=1
     )
@@ -186,9 +189,9 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     # ********* Plot 2: Passes and Carries *********
     ax2 = fig.add_subplot(gs[0, 1])
     pitch.draw(ax=ax2)
-    df_passes_completed = filtered_events[(filtered_events["type.name"] == "Pass") & (filtered_events['pass.outcome.name'].isna())]
-    df_passes_incomplete = filtered_events[(filtered_events["type.name"] == "Pass") & (filtered_events['pass.outcome.name'].notna())]
-    df_carries = filtered_events[filtered_events["type.name"] == "Carry"]
+    df_passes_completed = filtered_events[(filtered_events["event_type"] == "Pass") & (filtered_events['pass.outcome.name'].isna())]
+    df_passes_incomplete = filtered_events[(filtered_events["event_type"] == "Pass") & (filtered_events['pass.outcome.name'].notna())]
+    df_carries = filtered_events[filtered_events["event_type"] == "Carry"]
     pitch.lines(df_passes_completed['x'], df_passes_completed['y'], df_passes_completed['end_x'], df_passes_completed['end_y'],
                 lw=5, transparent=True, comet=True, label='Completed Passes', color='#0a9396', ax=ax2)
     pitch.lines(df_passes_incomplete['x'], df_passes_incomplete['y'], df_passes_incomplete['end_x'], df_passes_incomplete['end_y'],
@@ -201,11 +204,11 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
     # ********* Plot 3: Defensive Actions *********
     defensive_events = filtered_events[
-        (filtered_events['type.name'].isin(['Pressure', 'Block', 'Dribbled Past', 'Ball Recovery', 'Interception'])) |
-        ((filtered_events['type.name'] == 'Duel') & (filtered_events['duel.type.name'] == 'Tackle'))
+        (filtered_events['event_type'].isin(['Pressure', 'Block', 'Dribbled Past', 'Ball Recovery', 'Interception'])) |
+        ((filtered_events['event_type'] == 'Duel') & (filtered_events['duel.type.name'] == 'Tackle'))
     ]
-    pressure_events = defensive_events[defensive_events['type.name'] == 'Pressure']
-    other_events = defensive_events[defensive_events['type.name'] != 'Pressure']
+    pressure_events = defensive_events[defensive_events['event_type'] == 'Pressure']
+    other_events = defensive_events[defensive_events['event_type'] != 'Pressure']
     pressure_x = pressure_events['x'].tolist()
     pressure_y = pressure_events['y'].tolist()
     other_x = other_events['x'].tolist()
@@ -221,7 +224,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
     # ********* Plot 4: Shot Map *********
     shot_events = events_df[
-        (events_df['type.name'] == 'Shot') & (events_df['match_id'] == match_id) & (events_df['player.name'] == player)
+        (events_df['event_type'] == 'Shot') & (events_df['match_id'] == match_id) & (events_df['player.name'] == player)
     ]
     shot_events = shot_events[shot_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 3)]
     if not shot_events.empty:
@@ -533,12 +536,7 @@ consolidated_matches, player_mapping_with_names, events_df, season_stats, wyscou
 home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
 away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
 
-# Dynamically create keys after selecting the teams
-home_team_key = f"home_team_select_{home_team}" 
-away_team_key = f"away_team_select_{away_team}" 
-player_select_key = f"player_select_{home_team}_{away_team}"  # Use both teams for player selection key
-
-# Now, create the player selection dropdown
+# Match info for selected teams
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
@@ -546,12 +544,13 @@ if match_info.empty:
 else:
     match_id = match_info['statsbomb_id'].values[0]
     events_df = fetch_events_from_statsbomb(match_id)  # Fetch events using the match ID from API
-    
+
     # Fix: Check if 'player' exists and create 'player_name' column
     events_df = fix_player_name_column(events_df)
     
     # Extract player names from the events for the selected match
     players = events_df['player_name'].dropna().unique()  # List of player names from the events
+    player_select_key = f"player_select_{home_team}_{away_team}"  # Unique key for player selection
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
 
     # Ensure 'season_stats' is a DataFrame
