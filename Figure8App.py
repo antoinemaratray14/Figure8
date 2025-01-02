@@ -114,6 +114,9 @@ def filter_events(events_df):
 
     events_df[['x', 'y']] = pd.DataFrame(events_df['location'].tolist(), index=events_df.index)
     return events_df
+
+st.write("Columns in sb_events DataFrame:", sb_events.columns)
+st.write("First few rows of sb_events DataFrame:", sb_events.head())
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
