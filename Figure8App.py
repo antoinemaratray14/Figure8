@@ -151,8 +151,13 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     # ********* Plot 2: Passes and Carries *********
     ax2 = fig.add_subplot(gs[0, 1])
     pitch.draw(ax=ax2)
-    df_passes_completed = filtered_events[(filtered_events["event_type"] == "Pass") & (filtered_events['pass.outcome.name'].isna())]
-    df_passes_incomplete = filtered_events[(filtered_events["event_type"] == "Pass") & (filtered_events['pass.outcome.name'].notna())]
+    df[['end_x', 'end_y']] = df.apply(
+    lambda row: pd.Series(
+        row['pass_end_location'] 
+        if row['type'] == 'Pass' 
+        else (row['carry_end_location'] if row['type'] == 'Carry' else [None, None])), axis=1)
+    df_passes_completed = df[(df["type"] == "Pass") & (df['pass_outcome'].isna())]
+    df_passes_incomplete = df[(df["type"] == "Pass") & (df['pass_outcome'].notna())]
     df_carries = filtered_events[filtered_events["event_type"] == "Carry"]
     pitch.lines(df_passes_completed['x'], df_passes_completed['y'], df_passes_completed['end_x'], df_passes_completed['end_y'],
                 lw=5, transparent=True, comet=True, label='Completed Passes', color='#0a9396', ax=ax2)
