@@ -517,7 +517,7 @@ else:
         st.write("First few rows of sb_events DataFrame:", sb_events.head())
 
         # Ensure the events contain player names
-        sb_events['player_name'] = sb_events['player.name']  # Ensure 'player_name' column exists
+        sb_events['player_name'] = sb_events['player']  # Ensure 'player_name' column exists
 
         # Extract player names from the events for the selected match
         players = sb_events['player_name'].dropna().unique()  # List of player names from the events
