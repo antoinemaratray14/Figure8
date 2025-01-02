@@ -89,6 +89,8 @@ def load_data():
         if file_name.endswith('.csv'):
             if key == "consolidated_matches":
                 consolidated_matches = pd.read_csv(file_name)
+                st.write("Columns in consolidated_matches DataFrame:", consolidated_matches.columns) 
+                st.write("First few rows of consolidated_matches DataFrame:", consolidated_matches.head())  
             elif key == "player_mapping_with_names":
                 player_mapping_with_names = pd.read_csv(file_name)
         elif file_name.endswith('.json'):
