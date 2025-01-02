@@ -17,6 +17,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
 import warnings
+from requests.auth import HTTPBasicAuth
 import os
 warnings.filterwarnings('ignore')
 
