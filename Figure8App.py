@@ -11,6 +11,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from statsbombpy import sb
 import streamlit as st
 from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
@@ -23,8 +24,6 @@ warnings.filterwarnings('ignore')
 
 
 BASE_URL = "https://data.statsbomb.com/api/v8/events/"
-USERNAME = "admin@figure8.com"
-PASSWORD = "QCOKgqp1"
 
 # File IDs for Google Drive
 file_ids = {
@@ -60,25 +59,20 @@ def load_json_file(file_name):
         print(f"Failed to decode JSON from {file_name}: {e}")
         return None
 
-def fetch_events_from_statsbomb(match_id, username, password):
-    """Fetch events for a given match from StatsBomb API using basic authentication."""
-    url = f"{BASE_URL}{match_id}/"
-
-    # Perform the GET request with basic authentication
-    response = requests.get(url, auth=HTTPBasicAuth(username, password))
-
-    if response.status_code == 200:
-        try:
-            events_data = response.json()  # Assuming response is in JSON format
-            events_df = pd.json_normalize(events_data)  # Flatten the JSON data into a DataFrame
-            return events_df
-        except ValueError as e:
-            print(f"Error parsing JSON data: {e}")
-            return pd.DataFrame()  # Return empty DataFrame if there's an error
-    else:
-        print(f"Failed to fetch events. Status code: {response.status_code}")
-        return pd.DataFrame()  # Return empty DataFrame in case of failure
-
+def fetch_events_from_statsbomb(match_id):
+    """Fetch events for a given match from StatsBomb API using statsbombpy."""
+    # Replace 'your_username' and 'your_password' with your actual StatsBomb credentials
+    username = "admin@figure8.com"
+    password = "QCOKgqp1"
+    
+    try:
+        # Fetch events using statsbombpy
+        events_df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
+        return events_df
+    except Exception as e:
+        print(f"Error fetching events: {e}")
+        return pd.DataFrame()
+        
 @st.cache_data
 def load_data():
     # Initialize variables
@@ -114,9 +108,6 @@ def filter_events(events_df):
 
     events_df[['x', 'y']] = pd.DataFrame(events_df['location'].tolist(), index=events_df.index)
     return events_df
-
-st.write("Columns in sb_events DataFrame:", sb_events.columns)
-st.write("First few rows of sb_events DataFrame:", sb_events.head())
     
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
@@ -516,18 +507,25 @@ if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
     match_id = match_info['statsbomb_id'].values[0]
-    sb_events = fetch_events_from_statsbomb(match_id, USERNAME, PASSWORD)  # Fetch events using the match ID from API
+    sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using statsbombpy
     
-    # Ensure the events contain player names
-    sb_events['player_name'] = sb_events['player.name']  # Ensure 'player_name' column exists
-    
-    # Extract player names from the events for the selected match
-    players = sb_events['player_name'].dropna().unique()  # List of player names from the events
-    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
+    if sb_events.empty:
+        st.error("No events found for the selected match.")
+    else:
+        # After events are fetched, you can inspect them
+        st.write("Columns in sb_events DataFrame:", sb_events.columns)
+        st.write("First few rows of sb_events DataFrame:", sb_events.head())
 
-    # Filter the events for the selected player
-    filtered_events = filter_events(sb_events[sb_events['player_name'] == player])
+        # Ensure the events contain player names
+        sb_events['player_name'] = sb_events['player.name']  # Ensure 'player_name' column exists
 
-    # Generate and display the player's match dashboard visualization
-    fig = generate_full_visualization(filtered_events, sb_events, season_stats, match_id, player, wyscout_data, home_team, 90)  # Example for 90 minutes played
-    st.pyplot(fig)
+        # Extract player names from the events for the selected match
+        players = sb_events['player_name'].dropna().unique()  # List of player names from the events
+        player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
+
+        # Filter the events for the selected player
+        filtered_events = filter_events(sb_events[sb_events['player_name'] == player])
+
+        # Generate and display the player's match dashboard visualization
+        fig = generate_full_visualization(filtered_events, sb_events, season_stats, match_id, player, wyscout_data, home_team, 90)  # Example for 90 minutes played
+        st.pyplot(fig)
