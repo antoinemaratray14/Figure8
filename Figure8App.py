@@ -398,11 +398,12 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
             annot_kws={"size": 18, "color": "white", "weight": "bold"}
         )
         # Adjust labels and formatting
-        ax_pass_matrix.set_title(f"Pass Matrix for {player}", fontsize=18, pad=20)
-        ax_pass_matrix.set_xlabel("")
-        ax_pass_matrix.set_ylabel("")
-        ax_pass_matrix.tick_params(axis="x", bottom=False, labelbottom=False)  # Remove x-axis ticks
-        ax_pass_matrix.tick_params(axis="y", left=False, labelleft=False)  # Remove y-axis ticks
+            ax_pass_matrix.set_title(f"Pass Matrix for {player}", fontsize=18, pad=20)
+            ax_pass_matrix.set_xlabel("")
+            ax_pass_matrix.set_ylabel("")
+            ax_pass_matrix.tick_params(axis="x", labelrotation=45, labelsize=10)
+            ax_pass_matrix.tick_params(axis="y", left=False)  # Hide y-axis ticks
+            ax_pass_matrix.set_xticklabels(ax_pass_matrix.get_xticklabels(), ha='center')
     else:
         # Display a placeholder when pass_matrix is empty
         ax_pass_matrix.text(
