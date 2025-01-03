@@ -547,8 +547,6 @@ else:
         highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}]
     )
 
-    return fig
-
 st.title("Figure 8: Post-Match Dashboard")
 
 # Load Data
