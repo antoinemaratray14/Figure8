@@ -5,159 +5,90 @@ Created on Mon Dec 30 08:41:04 2024
 
 @author: antoinemaratray
 """
-import requests
+import streamlit as st
 import pandas as pd
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
-from statsbombpy import sb
-import streamlit as st
+import matplotlib.pyplot as plt
 from mplsoccer import Pitch, VerticalPitch
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from highlight_text import fig_text
+from statsbombpy import sb
+import gdown
 import warnings
-from requests.auth import HTTPBasicAuth
-import os
 warnings.filterwarnings('ignore')
 
-base_url = "https://drive.google.com/uc?id="
-file_ids = {
-    "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
-    "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
-    "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
-    "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
-    "wyscout_physical_data": "1pXB9Ih9gKZP3_i05X7QIW7Uw95AD8jTX",
-    "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
-}
+# StatsBomb API credentials
+username = "admin@figure8.com"  
+password = "QCOKgqp1"  
 
-def download_file_from_drive(file_id, destination_file_name):
-    """Download a file from Google Drive using its ID."""
-    url = f"{base_url}{file_id}&export=download"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
-        with open(destination_file_name, 'wb') as f:
-            f.write(response.content)
-        st.write(f"Downloaded {destination_file_name} from Google Drive.")
-    else:
-        st.write(f"Failed to download file from Google Drive. Status code: {response.status_code}")
-        return None
-    return destination_file_name
-
-def load_json_file(file_name):
-    """Load a JSON file."""
-    try:
-        with open(file_name, "r") as f:
-            data = json.load(f)
-        return data
-    except json.JSONDecodeError as e:
-        st.write(f"Error decoding JSON from {file_name}: {e}")
-        return None
-    except Exception as e:
-        st.write(f"Error reading file {file_name}: {e}")
-        return None
-
-def load_physical_data_csv(file_name):
-    """Load the physical data CSV file."""
-    try:
-        physical_data_df = pd.read_csv(file_name)
-        st.write("Loaded physical data CSV successfully.")
-        return physical_data_df
-    except Exception as e:
-        st.write(f"Error reading CSV file {file_name}: {e}")
-        return None
-
-def fetch_events_from_statsbomb(match_id):
-    """Fetch events for a given match from StatsBomb using statsbombpy."""
-    username = "admin@figure8.com"  # Your StatsBomb username
-    password = "QCOKgqp1"  # Your StatsBomb password
-
-    try:
-        # Using statsbombpy to fetch events with credentials
-        events_df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
-        return events_df
-    except Exception as e:
-        st.write(f"Error fetching events: {e}")
-        return pd.DataFrame()
-
-@st.cache_data
 def load_data():
-    # Initialize variables
-    consolidated_matches = None
-    player_mapping_with_names = None
-    sb_events = None
-    player_stats = None
-    wyscout_physical_data = None
+    base_url = "https://drive.google.com/uc?id="
+    file_ids = {
+        "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
+        "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
+        "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
+        "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
+        "wyscout_physical_data": "1pXB9Ih9gKZP3_i05X7QIW7Uw95AD8jTX",
+        "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
+    }
 
-    # Download each file from Google Drive
-    for key, file_id in file_ids.items():
-        file_name = f"{key}.csv" if key not in ["wyscout_physical_data", "player_stats"] else f"{key}.json"
-        
-        # Download the file from Google Drive
-        download_file_from_drive(file_id, file_name)
-
-        # Handle CSV files
-        if file_name.endswith('.csv'):
-            if key == "consolidated_matches":
-                consolidated_matches = pd.read_csv(file_name)
-            elif key == "player_mapping_with_names":
-                player_mapping_with_names = pd.read_csv(file_name)
-            elif key == "mapping_matches":
-                mapping_matches = pd.read_csv(file_name)
-            elif key == "mapping_players":
-                mapping_players = pd.read_csv(file_name)
-            elif key == "wyscout_physical_data":
-                # Load the physical data CSV
-                wyscout_physical_data = load_physical_data_csv(file_name)
-
-        # Handle JSON files
-        elif file_name.endswith('.json'):
-            if key == "player_stats":
-                player_stats = load_json_file(file_name)
-
-    return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
-
-# Load the data
-consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
-
-def filter_events(events_df):
-    events_df = events_df[events_df["type"].isin([
-        "Pass", "Dribble", "Carry", "Ball Receipt", "Block", "Interception", "Shot"
-    ])]
-
-    events_df = events_df[events_df['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)]
-
-    events_df[['x', 'y']] = pd.DataFrame(events_df['location'].tolist(), index=events_df.index)
-    return events_df
+    # Download datasets
+    consolidated_matches = pd.read_csv(gdown.download(base_url + file_ids["consolidated_matches"], quiet=False))
+    player_mapping_with_names = pd.read_csv(gdown.download(base_url + file_ids["player_mapping_with_names"], quiet=False))
+    wyscout_physical_data = pd.read_csv(gdown.download(base_url + file_ids["wyscout_physical_data"], quiet=False))
     
+    # Load player_stats as JSON
+    player_stats_json = gdown.download(base_url + file_ids["player_stats"], quiet=False)
+    with open(player_stats_json, 'r') as f:
+        player_stats = pd.DataFrame(json.load(f))
+
+
+
+    return consolidated_matches, player_mapping_with_names, player_stats, wyscout_physical_data
+consolidated_matches, player_mapping_with_names, player_stats, wyscout_physical_data = load_data()
+
+def get_events_from_statsbomb(match_id):
+    # Use StatsBomb API to fetch event data
+    events_df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
+    return events_df
+
+
 def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
         filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
     ]
-    
-    # Parse start location of events
     filtered_events[['x', 'y']] = pd.DataFrame(filtered_events['location'].tolist(), index=filtered_events.index)
-
-    # Extract 'event_type' based on 'type' dictionary (assuming 'type' is always a dictionary with a 'name' key)
-    filtered_events['event_type'] = filtered_events['type'].apply(lambda x: x.get('name') if isinstance(x, dict) else None)
-
-    # Extract 'end_x' and 'end_y' for passes and carries
-    def get_end_location(row, event_type):
-        if event_type == 'Pass' and isinstance(row.get('pass.end_location'), list):
-            return row['pass.end_location'][0], row['pass.end_location'][1]
-        elif event_type == 'Carry' and isinstance(row.get('carry.end_location'), list):
-            return row['carry.end_location'][0], row['carry.end_location'][1]
-        else:
-            return None, None
-
-    # Apply the get_end_location function to get 'end_x' and 'end_y' values
+    
+    # Extract 'end_x', 'end_y' for passes and carries
     filtered_events[['end_x', 'end_y']] = filtered_events.apply(
-        lambda row: pd.Series(get_end_location(row, row['event_type'])), axis=1
+        lambda row: pd.Series(row['pass_end_location'] if row['type'] == 'Pass' else 
+                              (row['carry_end_location'] if row['type'] == 'Carry' else [None, None])), axis=1
     )
     
+    # Retain Shot events for separate processing
+    shot_events = filtered_events[filtered_events["type"] == "Shot"]
+    
+    # Extract shot-specific columns
+    filtered_events['shot_outcome'] = filtered_events.apply(
+        lambda row: row['shot_outcome'] if row['type'] == 'Shot' else None, axis=1
+    )
+    filtered_events['shot_statsbomb_xg'] = filtered_events.apply(
+        lambda row: row['shot_statsbomb_xg'] if row['type'] == 'Shot' else None, axis=1
+    )
+    
+    # Parse location for Shot events
+    if not shot_events.empty:
+        shot_events[['x', 'y']] = pd.DataFrame(shot_events['location'].tolist(), index=shot_events.index)
+
+    # Set up the 2x4 grid for the plots
+    fig = plt.figure(figsize=(20, 28))
+    gs = GridSpec(4, 2, figure=fig, height_ratios=[5, 5, 5, 6])
+    gs.update(hspace=0.3)
+
     # Set up the 2x4 grid for the plots
     fig = plt.figure(figsize=(20, 28))
     gs = GridSpec(4, 2, figure=fig, height_ratios=[5, 5, 5, 6])
@@ -168,44 +99,61 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     pitch = Pitch(line_color='black', pitch_color='white')
     pitch.draw(ax=ax1)
     cmap = LinearSegmentedColormap.from_list("white_to_darkred", ["white", "#9d0208"])
-    pitch.kdeplot(filtered_events['x'], filtered_events['y'], ax=ax1, cmap=cmap, fill=True, levels=100, alpha=0.7)
+    
+    # Filter touches-related events
+    touch_events = filtered_events[
+        (filtered_events["type"].isin(["Pass", "Dribble", "Carry", "Ball Receipt"]))
+    ]
+    
+    # Extract and plot
+    touch_events[['x', 'y']] = pd.DataFrame(touch_events['location'].tolist(), index=touch_events.index)
+    pitch.kdeplot(touch_events['x'], touch_events['y'], ax=ax1, cmap=cmap, fill=True, levels=100, alpha=0.7)
     ax1.set_title("Touches Heatmap", fontsize=16)
 
     # ********* Plot 2: Passes and Carries *********
     ax2 = fig.add_subplot(gs[0, 1])
     pitch.draw(ax=ax2)
-    df[['end_x', 'end_y']] = df.apply(
-    lambda row: pd.Series(
-        row['pass_end_location'] 
-        if row['type'] == 'Pass' 
-        else (row['carry_end_location'] if row['type'] == 'Carry' else [None, None])), axis=1)
-    df_passes_completed = df[(df["type"] == "Pass") & (df['pass_outcome'].isna())]
-    df_passes_incomplete = df[(df["type"] == "Pass") & (df['pass_outcome'].notna())]
-    df_carries = filtered_events[filtered_events["event_type"] == "Carry"]
+    
+    # Separate pass and carry data for plot customization
+    filtered_events[['end_x', 'end_y']] = filtered_events.apply(
+        lambda row: pd.Series(row['pass_end_location'] if row['type'] == 'Pass' else 
+                              (row['carry_end_location'] if row['type'] == 'Carry' else [None, None])), axis=1
+    )
+    
+    df_passes_completed = filtered_events[(filtered_events["type"] == "Pass") & (filtered_events['pass_outcome'].isna())]
+    df_passes_incomplete = filtered_events[(filtered_events["type"] == "Pass") & (filtered_events['pass_outcome'].notna())]
+    df_carries = filtered_events[filtered_events["type"] == "Carry"]
+    
+    # Plot lines
     pitch.lines(df_passes_completed['x'], df_passes_completed['y'], df_passes_completed['end_x'], df_passes_completed['end_y'],
                 lw=5, transparent=True, comet=True, label='Completed Passes', color='#0a9396', ax=ax2)
     pitch.lines(df_passes_incomplete['x'], df_passes_incomplete['y'], df_passes_incomplete['end_x'], df_passes_incomplete['end_y'],
                 lw=5, transparent=True, comet=True, label='Incomplete Passes', color='#ba4f45', ax=ax2)
     pitch.lines(df_carries['x'], df_carries['y'], df_carries['end_x'], df_carries['end_y'],
                 lw=5, transparent=True, comet=True, linestyle='dotted', label='Carries', color='#fcbf49', ax=ax2)
+    
+    # Add legend and title
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, facecolor='white', handlelength=3, fontsize=13, loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3)
     ax2.set_title("Passes and Carries", fontsize=16)
 
     # ********* Plot 3: Defensive Actions *********
     defensive_events = filtered_events[
-        (filtered_events['event_type'].isin(['Pressure', 'Block', 'Dribbled Past', 'Ball Recovery', 'Interception'])) |
-        ((filtered_events['event_type'] == 'Duel') & (filtered_events['duel.type.name'] == 'Tackle'))
+        filtered_events["type"].isin(["Pressure", "Block", "Interception", "Duel"])
     ]
-    pressure_events = defensive_events[defensive_events['event_type'] == 'Pressure']
-    other_events = defensive_events[defensive_events['event_type'] != 'Pressure']
-    pressure_x = pressure_events['x'].tolist()
-    pressure_y = pressure_events['y'].tolist()
-    other_x = other_events['x'].tolist()
-    other_y = other_events['y'].tolist()
+    pressure_events = defensive_events[defensive_events["type"] == "Pressure"]
+    other_events = defensive_events[defensive_events["type"] != "Pressure"]
+    
+    pressure_x = [loc[0] for loc in pressure_events['location'] if isinstance(loc, list)]
+    pressure_y = [loc[1] for loc in pressure_events['location'] if isinstance(loc, list)]
+    other_x = [loc[0] for loc in other_events['location'] if isinstance(loc, list)]
+    other_y = [loc[1] for loc in other_events['location'] if isinstance(loc, list)]
+    
     ax3 = fig.add_subplot(gs[1, 0])
     pitch.draw(ax=ax3)
     cmap = LinearSegmentedColormap.from_list("gray_to_darkblue", ["white", "#003566"])
+    
+    # Heatmap
     pitch.kdeplot(all_x := other_x + pressure_x, all_y := other_y + pressure_y, ax=ax3, cmap=cmap, fill=True, levels=100, alpha=0.6, zorder=1)
     pitch.scatter(other_x, other_y, ax=ax3, color="blue", edgecolors="white", alpha=0.8, s=50, label="Defensive Actions")
     pitch.scatter(pressure_x, pressure_y, ax=ax3, color="orange", edgecolors="white", alpha=0.8, s=50, marker='^', label="Pressure Events")
@@ -213,25 +161,76 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     ax3.set_title("Defensive Actions", fontsize=16)
 
     # ********* Plot 4: Shot Map *********
-    shot_events = events_df[
-        (events_df['event_type'] == 'Shot') & (events_df['match_id'] == match_id) & (events_df['player.name'] == player)
+    # Filter for shots by the selected player and exclude penalties
+    player_shots = events_df[
+        (events_df["type"] == "Shot") &
+        (events_df["player"] == player) &
+        (events_df["shot_type"] != "Penalty")
     ]
-    shot_events = shot_events[shot_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 3)]
-    if not shot_events.empty:
-        shot_events[['x', 'y']] = pd.DataFrame(shot_events['location'].apply(lambda loc: loc[:2]).tolist(), index=shot_events.index)
-        goals = shot_events[shot_events['shot.outcome.name'] == 'Goal']
-        non_goals = shot_events[shot_events['shot.outcome.name'] != 'Goal']
-        ax4 = fig.add_subplot(gs[1, 1])
-        pitch = VerticalPitch(pitch_color='white', line_color='black', line_zorder=2, half=True)
-        pitch.draw(ax=ax4)
+    
+    # Ensure `location` is valid and parse it into `x`, `y`, `z`
+    if not player_shots.empty and "location" in player_shots.columns:
+        player_shots[['x', 'y', 'z']] = pd.DataFrame(player_shots['location'].tolist(), index=player_shots.index)
+    
+        # Separate non-goals and goals
+        non_goals = player_shots[player_shots["shot_outcome"] != "Goal"]
+        goals = player_shots[player_shots["shot_outcome"] == "Goal"]
+    
+        # Set up the subplot for the shot map
+        ax_shot_map = fig.add_subplot(gs[1, 1])
+        pitch = VerticalPitch(
+            pitch_type='statsbomb',
+            pitch_color='white',  # Background color for pitch
+            line_color='black',  # Pitch lines color
+            line_zorder=1,
+            pad_bottom=-15,
+            linewidth=2,
+            half=True
+        )
+        pitch.draw(ax=ax_shot_map)
+    
+        # Plot non-goals
         if not non_goals.empty:
-            pitch.scatter(non_goals['x'], non_goals['y'], s=non_goals.get('shot.statsbomb_xg', 100) * 1000, edgecolor='black',
-                          color='lightgrey', alpha=0.8, label='Non-Goals', ax=ax4)
+            pitch.scatter(
+                non_goals['x'], 
+                non_goals['y'], 
+                s=non_goals['shot_statsbomb_xg'] * 1000, 
+                c='lightgrey',  
+                edgecolors='black', 
+                marker='o', 
+                alpha=0.8, 
+                ax=ax_shot_map, 
+                label='Non-Goals'
+            )
+    
+        # Plot goals
         if not goals.empty:
-            pitch.scatter(goals['x'], goals['y'], s=goals.get('shot.statsbomb_xg', 100) * 1000, edgecolor='black',
-                          color='green', alpha=0.8, label='Goals', ax=ax4)
-        ax4.legend(loc='lower center', bbox_to_anchor=(0.5, -0.1), ncol=2, title='Shot Outcome')
-        ax4.set_title("Shot Map", fontsize=16)
+            pitch.scatter(
+                goals['x'], 
+                goals['y'], 
+                s=goals['shot_statsbomb_xg'] * 1000, 
+                c='#40916c',  
+                edgecolors='black', 
+                marker='o', 
+                alpha=0.8, 
+                ax=ax_shot_map, 
+                label='Goals'
+            )
+    
+        # Add legend below the plot without a frame
+        legend = ax_shot_map.legend(
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.1),
+            title='Shot Outcome',
+            frameon=False,
+            ncol=2
+        )
+        for legend_handle in legend.legendHandles:
+            legend_handle._sizes = [100]  # Adjust legend marker size
+    
+        # Add the title
+        ax_shot_map.set_title(f'Shot Map', fontsize=20, color='black')
+
         
         # ********* Plot 5: Benchmarking - Match vs Season *********
     # Define colors
@@ -358,50 +357,44 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     
     # Define colors consistent with the rest of the dashboard
     color4, color3, color2, color1 = '#0d1b2a', '#1b263b', '#415a77', '#778da9'
-    cmap = sns.color_palette([color1, color2, color3, color4], as_cmap=True)
+    cmap = LinearSegmentedColormap.from_list("custom_blue_gradient", [color1, color2, color3, color4])
     
     # Retrieve data for the specific match and lineups
-    df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
     lineup_data = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
     
-    # Get the opponent name based on the match lineup data
-    team_data = lineup_data[team]
-    opponent = [t for t in lineup_data.keys() if t != team][0]  # Find the other team name
+    # Get the team data for the focus team and opponent
+    team_data = lineup_data[home_team]
+    opponent = [t for t in lineup_data.keys() if t != home_team][0]  # Find the opponent's name
     
-    # Define teammates as players in the same team as `player`
-    teammates = team_data["player_name"].tolist()  # List of names of players on the selected team
+    # Get the list of teammates for the selected team
+    teammates = team_data["player_name"].tolist()
     
-    # Filter `df` to include:
-    # - Only passes by the selected player
-    # - Only successful passes (pass_outcome is None)
-    # - Passes where the recipient is a teammate
-    df_passes = df[
-        (df["team"] == team) &  # Make sure this is the correct team column in the data
-        (df["player.name"] == player) &  # Ensure this is how player names are stored in your df
-        (df["type.name"] == "Pass") &  # Ensure the "type" field is being referenced correctly
-        (df["pass.outcome.name"].isna())  # Successful passes only (no outcome)
+    # Filter events for passes made by the selected player to teammates
+    df_passes = events_df[
+        (events_df["team"] == home_team) &  # Focus on the selected home team
+        (events_df["player"] == player) &  # Filter for the selected player
+        (events_df["type"] == "Pass") &  # Only passes
+        (events_df["pass_outcome"].isna()) &  # Only successful passes
+        (events_df["pass_recipient"].isin(teammates))  # Only passes to teammates
     ]
     
-    # Filter out passes where the recipient is not a teammate
-    df_passes = df_passes[df_passes["pass.recipient.name"].isin(teammates)]
+    # Group passes by player and recipient to calculate pass counts
+    pass_matrix = df_passes.groupby(["player", "pass_recipient"]).size().unstack(fill_value=0)
     
-    # Group by pass recipient and count the number of passes for each
-    pass_matrix = df_passes.groupby("pass.recipient.name").size().reset_index(name='count')
-    pass_matrix = pass_matrix.sort_values(by="count", ascending=True)
+    # Sort pass_matrix by total passes received
+    pass_matrix = pass_matrix.loc[:, pass_matrix.sum().sort_values(ascending=True).index]
     
-    # Set recipient names and counts for the heatmap
-    recipient_names = pass_matrix["pass.recipient.name"]
-    counts = pass_matrix["count"]
+    # Create the pass matrix plot
+    ax_pass_matrix = fig.add_subplot(gs[2, 1])
     
-    # Create the Pass Matrix Heatmap
+    # Create the heatmap
     sns.heatmap(
-        data=[counts],
+        pass_matrix,
         annot=True,
         fmt="d",
         cmap=cmap,
         cbar=False,
-        xticklabels=recipient_names,
-        yticklabels=['Completed'],
+        ax=ax_pass_matrix,
         annot_kws={"size": 18, "color": "white", "weight": "bold"}
     )
     
@@ -412,112 +405,122 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     ax_pass_matrix.tick_params(axis="x", labelrotation=45, labelsize=10)
     ax_pass_matrix.tick_params(axis="y", left=False)  # Hide y-axis ticks
     ax_pass_matrix.set_xticklabels(ax_pass_matrix.get_xticklabels(), ha='center')
+    
+    # Refine alignment and adjust position for x-tick labels
     for label in ax_pass_matrix.get_xticklabels():
         label.set_ha('right')  # Align to the right
         label.set_position((label.get_position()[0] + 0.5, label.get_position()[1]))  # Adjust position slightly
-
+    
+    # Maintain aspect ratio and layout constraints
     ax_pass_matrix.set_aspect(aspect="auto")  # Adjust aspect ratio if needed
     plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])  # Constrain layout to leave margins
- 
+    
 # ********* Plot 7: High-Speed Running *********
 
-# Map StatsBomb match and player IDs to Wyscout IDs
-wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id']
-wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id']
-
-# Ensure the IDs exist and extract their values
-if not wyscout_match_id.empty and not wyscout_player_id.empty:
-    wyscout_match_id = wyscout_match_id.values[0]
-    wyscout_player_id = wyscout_player_id.values[0]
-else:
-    st.error("Unable to find Wyscout IDs for the selected match and player. Check your mappings.")
+    # Map StatsBomb match and player IDs to Wyscout IDs
+    wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id']
+    wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id']
     
-ax_hsr = fig.add_subplot(gs[3, 0])
-
-# Metrics of interest and colors
-metrics_of_interest = {
-    "High Speed Running (HSR) Distance": "#669bbc",
-    "Sprinting Distance": "#1b263b",
-    "High Intensity (HI) Distance": "#9e2a2b",
-}
-
-# Hardcoded x-axis phases
-hardcoded_phases = ["1'-15'", "16'-30'", "31'-45+'", "46'-60'", "61'-75'", "76'-120+'"]
-
-# Initialize metric data
-metric_data = {metric: {phase: 0 for phase in hardcoded_phases} for metric in metrics_of_interest}
-
-# Filter and map Wyscout data from CSV
-filtered_wyscout_data = wyscout_physical_data[
-    (wyscout_physical_data['matchId'] == str(wyscout_match_id)) & 
-    (wyscout_physical_data['playerid'] == str(wyscout_player_id))
-]
-
-# Fill metric data with values from filtered data
-for metric, color in metrics_of_interest.items():
-    for _, entry in filtered_wyscout_data.iterrows():
-        if entry['metric'] == metric and entry['phase'] in hardcoded_phases:
-            metric_data[metric][entry['phase']] = float(entry['value'])
-
-# Truncate phases based on player minutes
-filtered_phases = [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
-metric_data = {metric: {phase: metric_data[metric][phase] for phase in filtered_phases} for metric in metrics_of_interest}
-
-# Plot metrics
-for metric, color in metrics_of_interest.items():
-    phases = filtered_phases
-    values = [metric_data[metric][phase] for phase in phases]
-    ax_hsr.plot(phases, values, marker='o', label=metric, color=color)
-
-# Format the plot
-ax_hsr.set_xticks(range(len(filtered_phases)))
-ax_hsr.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
-ax_hsr.set_yticks(range(0, 251, 50))  # Adjust as needed
-ax_hsr.set_title("", fontsize=16, pad=20)
-ax_hsr.set_xlabel("", fontsize=12)
-ax_hsr.set_ylabel("Distance (m)", fontsize=12)
-ax_hsr.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=1, fontsize=10, frameon=False)
-ax_hsr.grid(alpha=0.5)
-ax_hsr.spines['top'].set_visible(False)
-ax_hsr.spines['right'].set_visible(False)
-
-# ********* Plot 8: Max Speed Bar Chart *********
-ax_max_speed = fig.add_subplot(gs[3, 1])
-
-# Initialize bar data
-bar_data = {phase: 0 for phase in hardcoded_phases}
-
-# Populate bar data with Max Speed metric
-for _, entry in filtered_wyscout_data.iterrows():
-    if entry['metric'] == "Max Speed" and entry['phase'] in hardcoded_phases:
-        bar_data[entry['phase']] = float(entry['value'])
-
-# Adjust bar data for filtered phases
-bar_data = {phase: bar_data[phase] for phase in filtered_phases}
-
-# Prepare data for the bar chart
-values = [bar_data[phase] for phase in filtered_phases]
-
-# Plot the bar chart
-if values:  # Check if there is data to plot
-    bars = ax_max_speed.bar(filtered_phases, values, color="#003049", edgecolor="black")
-    for bar, value in zip(bars, values):
+    # Ensure the IDs exist and extract their values
+    if not wyscout_match_id.empty and not wyscout_player_id.empty:
+        wyscout_match_id = wyscout_match_id.values[0]
+        wyscout_player_id = wyscout_player_id.values[0]
+    else:
+        st.error("Unable to find Wyscout IDs for the selected match and player. Check your mappings.")
+        st.stop()
+    
+    # Filter Wyscout data for the selected match and player
+    filtered_wyscout_data = wyscout_physical_data[
+        (wyscout_physical_data['matchId'] == wyscout_match_id) & (wyscout_physical_data['playerid'] == wyscout_player_id)
+    ]
+    
+    # Ensure there is data for the match and player
+    if filtered_wyscout_data.empty:
+        st.error("No Wyscout data available for the selected player and match.")
+        st.stop()
+    
+    ax_hsr = fig.add_subplot(gs[3, 0])
+    
+    # Metrics of interest and colors
+    metrics_of_interest = {
+        "High Speed Running (HSR) Distance": "#669bbc",
+        "Sprinting Distance": "#1b263b",
+        "High Intensity (HI) Distance": "#9e2a2b",
+    }
+    
+    # Hardcoded x-axis phases
+    hardcoded_phases = ["1'-15'", "16'-30'", "31'-45+'", "46'-60'", "61'-75'", "76'-120+'"]
+    
+    # Initialize metric data
+    metric_data = {metric: {phase: 0 for phase in hardcoded_phases} for metric in metrics_of_interest}
+    
+    # Populate metric data
+    for metric, color in metrics_of_interest.items():
+        metric_df = filtered_wyscout_data[filtered_wyscout_data['metric'] == metric]
+        for _, row in metric_df.iterrows():
+            if row['phase'] in hardcoded_phases:
+                metric_data[metric][row['phase']] = row['value']
+    
+    # Truncate phases based on player minutes
+    filtered_phases = [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
+    metric_data = {metric: {phase: metric_data[metric][phase] for phase in filtered_phases} for metric in metrics_of_interest}
+    
+    # Plot metrics
+    for metric, color in metrics_of_interest.items():
+        phases = filtered_phases
+        values = [metric_data[metric][phase] for phase in phases]
+        ax_hsr.plot(phases, values, marker='o', label=metric, color=color)
+    
+    # Format the plot
+    ax_hsr.set_xticks(range(len(filtered_phases)))
+    ax_hsr.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
+    ax_hsr.set_yticks(range(0, 251, 50))  # Adjust as needed
+    ax_hsr.set_title("", fontsize=16, pad=20)
+    ax_hsr.set_xlabel("", fontsize=12)
+    ax_hsr.set_ylabel("Distance (m)", fontsize=12)
+    ax_hsr.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=1, fontsize=10, frameon=False)
+    ax_hsr.grid(alpha=0.5)
+    ax_hsr.spines['top'].set_visible(False)
+    ax_hsr.spines['right'].set_visible(False)
+    
+    # ********* Plot 8: Max Speed Bar Chart *********
+    ax_max_speed = fig.add_subplot(gs[3, 1])
+    
+    # Initialize bar data
+    bar_data = {phase: 0 for phase in hardcoded_phases}
+    
+    # Populate bar data with Max Speed metric
+    max_speed_data = filtered_wyscout_data[filtered_wyscout_data['metric'] == "Max Speed"]
+    for _, row in max_speed_data.iterrows():
+        if row['phase'] in hardcoded_phases:
+            bar_data[row['phase']] = row['value']
+    
+    # Adjust bar data for filtered phases
+    bar_data = {phase: bar_data[phase] for phase in filtered_phases}
+    
+    # Prepare data for the bar chart
+    values = [bar_data[phase] for phase in filtered_phases]
+    
+    # Plot the bar chart
+    if values:  # Check if there is data to plot
+        bars = ax_max_speed.bar(filtered_phases, values, color="#003049", edgecolor="black")
+        for bar, value in zip(bars, values):
+            ax_max_speed.text(
+                bar.get_x() + bar.get_width() / 2,  # Center of the bar
+                bar.get_height() - 0.5,  # Slightly below the top of the bar
+                f"{value:.1f}",  # Label text (formatted to 1 decimal place)
+                ha="center",  # Horizontal alignment
+                va="top",  # Vertical alignment
+                color="white",  # Label color
+                fontsize=12,  # Font size
+                weight="bold"  # Bold text
+            )
+    else:
         ax_max_speed.text(
-            bar.get_x() + bar.get_width() / 2,  # Center of the bar
-            bar.get_height() - 0.5,  # Slightly below the top of the bar
-            f"{value:.1f}",  # Label text (formatted to 1 decimal place)
-            ha="center",  # Horizontal alignment
-            va="top",  # Vertical alignment
-            color="white",  # Label color
-            fontsize=12,  # Font size
-            weight="bold"  # Bold text
+            0.5, 0.5, "No Max Speed Data Available", ha="center", va="center",
+            fontsize=16, color="gray", transform=ax_max_speed.transAxes
         )
-else:
-    ax_max_speed.text(
-        0.5, 0.5, "No Max Speed Data Available", ha="center", va="center",
-        fontsize=16, color="gray", transform=ax_max_speed.transAxes
-    )
-
+    
     # Format the chart
     ax_max_speed.set_title("", fontsize=16, pad=20)
     ax_max_speed.set_xticks(range(len(filtered_phases)))
@@ -526,56 +529,67 @@ else:
     ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
     ax_max_speed.spines['top'].set_visible(False)
     ax_max_speed.spines['right'].set_visible(False)
-
+    
     fig_text(
         s=f"<{player}> \nvs <{opponent}> | Mins played: {player_minutes:.2f}",
         x=0.150, y=0.975, fontsize=30, 
         highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}]
     )
 
+    return fig
+
+
+# Main Streamlit App
 st.title("Figure 8: Post-Match Dashboard")
 
 # Load Data
-consolidated_matches, player_mapping_with_names, sb_events, season_stats, wyscout_data = load_data()
+consolidated_matches, player_mapping_with_names, season_stats, wyscout_data = load_data()
 
-# Sidebar Inputs with unique keys
-home_team_key = f"home_team_select"
-away_team_key = f"away_team_select"
-player_select_key = f"player_select"
-
-home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
-away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
-
-# Ensure match_info is found
+# Sidebar Inputs
+home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique())
+away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique())
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
+
 
 if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
-    # Now match_id is correctly assigned
     match_id = match_info['statsbomb_id'].values[0]
-    st.write(f"Match ID: {match_id}")
-    
-    # Fetch events for the selected match
-    sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using statsbombpy
-    
-    if sb_events.empty:
-        st.error("No events found for the selected match.")
-    else:
-        # After events are fetched, you can inspect them
-        st.write("Columns in sb_events DataFrame:", sb_events.columns)
-        st.write("First few rows of sb_events DataFrame:", sb_events.head())
+    events_df = get_events_from_statsbomb(match_id)  # Fetch events using StatsBomb API
+    players = events_df['player'].unique()  # Get unique player names from events
+    player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)
 
-        # Ensure the events contain player names
-        sb_events['player_name'] = sb_events['player']  # Ensure 'player_name' column exists
+    if st.button("Generate Visualization"):
+        with st.spinner("Generating plots..."):
+            # Get opponent details
+            lineups = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
+            opponent = [team for team in lineups.keys() if team != home_team][0]
 
-        # Extract player names from the events for the selected match
-        players = sb_events['player_name'].dropna().unique()  # List of player names from the events
-        player = st.sidebar.selectbox("Select Player (Start Typing Name)", players, key=player_select_key)  # Dropdown for player selection
+            # Filter events for the selected player
+            filtered_events = events_df[events_df['player'] == player]
 
-        # Filter the events for the selected player
-        filtered_events = filter_events(sb_events[sb_events['player_name'] == player])
+            # Ensure the columns exist in player_stats
+            if 'match_id' in player_stats.columns and 'player_name' in player_stats.columns:
+                player_match = player_stats[
+                    (player_stats['match_id'] == match_id) & 
+                    (player_stats['player_name'] == player)
+                ]
+            else:
+                st.error("The 'match_id' or 'player_name' column is missing in the player_stats data.")
+                st.stop()
 
-        # Generate and display the player's match dashboard visualization
-        fig = generate_full_visualization(filtered_events, sb_events, season_stats, match_id, player, wyscout_data, home_team, 90)  # Example for 90 minutes played
-        st.pyplot(fig)
+            # Extract player minutes
+            player_minutes = player_match['player_match_minutes'].iloc[0] if not player_match.empty else 0
+
+            # Generate and display visualizations
+            fig = generate_full_visualization(
+                filtered_events,
+                events_df,
+                player_stats,
+                match_id,
+                player,
+                wyscout_physical_data,
+                opponent,
+                player_minutes
+            )
+            st.pyplot(fig)
