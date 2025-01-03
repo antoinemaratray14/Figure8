@@ -35,6 +35,8 @@ def load_data():
         "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
     }
 
+    import requests_cache
+    requests_cache.install_cache("gdown_cache", backend="sqlite", expire_after=3600)
     # Download datasets
     consolidated_matches = pd.read_csv(gdown.download(base_url + file_ids["consolidated_matches"], quiet=False))
     player_mapping_with_names = pd.read_csv(gdown.download(base_url + file_ids["player_mapping_with_names"], quiet=False))
