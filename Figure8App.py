@@ -554,6 +554,7 @@ if match_info.empty:
 else:
     # Now match_id is correctly assigned
     match_id = match_info['statsbomb_id'].values[0]
+    st.write(f"Match ID: {match_id}")
     
     # Fetch events for the selected match
     sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using statsbombpy
