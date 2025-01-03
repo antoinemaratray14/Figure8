@@ -546,7 +546,7 @@ fig_text(
         x=0.150, y=0.975, fontsize=30, 
         highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}])
 
-    return fig
+return fig
 
 st.title("Figure 8: Post-Match Dashboard")
 
