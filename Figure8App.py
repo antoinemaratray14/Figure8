@@ -382,38 +382,37 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     pass_matrix = df_passes.groupby(["player", "pass_recipient"]).size().unstack(fill_value=0)
     
     # Sort pass_matrix by total passes received
-    pass_matrix = pass_matrix.loc[:, pass_matrix.sum().sort_values(ascending=True).index]
+    if not pass_matrix.empty:
+        pass_matrix = pass_matrix.loc[:, pass_matrix.sum().sort_values(ascending=True).index]
     
-    # Create the pass matrix plot
-    ax_pass_matrix = fig.add_subplot(gs[2, 1])
-    
-    # Create the heatmap
-    sns.heatmap(
-        pass_matrix,
-        annot=True,
-        fmt="d",
-        cmap=cmap,
-        cbar=False,
-        ax=ax_pass_matrix,
-        annot_kws={"size": 18, "color": "white", "weight": "bold"}
-    )
-    
-    # Adjust labels and formatting
-    ax_pass_matrix.set_title(f"Pass Matrix for {player}", fontsize=18, pad=20)
-    ax_pass_matrix.set_xlabel("")
-    ax_pass_matrix.set_ylabel("")
-    ax_pass_matrix.tick_params(axis="x", labelrotation=45, labelsize=10)
-    ax_pass_matrix.tick_params(axis="y", left=False)  # Hide y-axis ticks
-    ax_pass_matrix.set_xticklabels(ax_pass_matrix.get_xticklabels(), ha='center')
-    
-    # Refine alignment and adjust position for x-tick labels
-    for label in ax_pass_matrix.get_xticklabels():
-        label.set_ha('right')  # Align to the right
-        label.set_position((label.get_position()[0] + 0.5, label.get_position()[1]))  # Adjust position slightly
+        # Create the heatmap
+        sns.heatmap(
+            pass_matrix,
+            annot=True,
+            fmt="d",
+            cmap=cmap,
+            cbar=False,
+            ax=ax_pass_matrix,
+            annot_kws={"size": 18, "color": "white", "weight": "bold"}
+        )
+        # Adjust labels and formatting
+        ax_pass_matrix.set_title(f"Pass Matrix for {player}", fontsize=18, pad=20)
+        ax_pass_matrix.set_xlabel("")
+        ax_pass_matrix.set_ylabel("")
+        ax_pass_matrix.tick_params(axis="x", bottom=False, labelbottom=False)  # Remove x-axis ticks
+        ax_pass_matrix.tick_params(axis="y", left=False, labelleft=False)  # Remove y-axis ticks
+    else:
+        # Display a placeholder when pass_matrix is empty
+        ax_pass_matrix.text(
+            0.5, 0.5, "No Pass Data Available",
+            ha='center', va='center', fontsize=16, color='gray', transform=ax_pass_matrix.transAxes
+        )
+        ax_pass_matrix.set_title(f"Pass Matrix for {player}", fontsize=18, pad=20)
+        ax_pass_matrix.axis("off")  # Hide axes
     
     # Maintain aspect ratio and layout constraints
     ax_pass_matrix.set_aspect(aspect="auto")  # Adjust aspect ratio if needed
-    plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])  # Constrain layout to leave margins
+    plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])
     
 # ********* Plot 7: High-Speed Running *********
 
