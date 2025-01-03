@@ -28,7 +28,7 @@ file_ids = {
     "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
     "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
     "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
-    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",  # The large JSON file
+    "wyscout_physical_data": "1pXB9Ih9gKZP3_i05X7QIW7Uw95AD8jTX",
     "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
 }
 
@@ -59,22 +59,14 @@ def load_json_file(file_name):
         st.write(f"Error reading file {file_name}: {e}")
         return None
 
-def load_json_file_in_chunks(file_name, chunk_size=10000):
-    """Load a large JSON file in chunks."""
+def load_physical_data_csv(file_name):
+    """Load the physical data CSV file."""
     try:
-        # Create an empty list to hold the chunks
-        chunk_list = []
-        
-        # Read JSON file in chunks
-        for chunk in pd.read_json(file_name, lines=True, chunksize=chunk_size):
-            chunk_list.append(chunk)  # Append each chunk to the list
-
-        # Combine all chunks into one DataFrame
-        full_df = pd.concat(chunk_list, ignore_index=True)
-        st.write("Loaded full DataFrame in chunks.")
-        return full_df
+        physical_data_df = pd.read_csv(file_name)
+        st.write("Loaded physical data CSV successfully.")
+        return physical_data_df
     except Exception as e:
-        st.write(f"Error reading JSON file in chunks: {e}")
+        st.write(f"Error reading CSV file {file_name}: {e}")
         return None
 
 def fetch_events_from_statsbomb(match_id):
@@ -116,12 +108,13 @@ def load_data():
                 mapping_matches = pd.read_csv(file_name)
             elif key == "mapping_players":
                 mapping_players = pd.read_csv(file_name)
+            elif key == "wyscout_physical_data":
+                # Load the physical data CSV
+                wyscout_physical_data = load_physical_data_csv(file_name)
 
         # Handle JSON files
         elif file_name.endswith('.json'):
-            if key == "wyscout_physical_data":
-                wyscout_physical_data = load_json_file_in_chunks(file_name)
-            elif key == "player_stats":
+            if key == "player_stats":
                 player_stats = load_json_file(file_name)
 
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
@@ -377,18 +370,36 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     # Define Pass Matrix Plot
     ax_pass_matrix = fig.add_subplot(gs[2, 1])
     
-    # Filter successful passes by the selected player in the chosen match
+    # Define colors consistent with the rest of the dashboard
     color4, color3, color2, color1 = '#0d1b2a', '#1b263b', '#415a77', '#778da9'
-    cmap = LinearSegmentedColormap.from_list("custom_blue_gradient", [color1, color2, color3, color4])
+    cmap = sns.color_palette([color1, color2, color3, color4], as_cmap=True)
     
-    df_passes = events_df[
-        (events_df['match_id'] == match_id) &
-        (events_df['player.name'] == player) &
-        (events_df['type.name'] == "Pass") &
-        (events_df['pass.outcome.name'].isna())  # Only successful passes
+    # Retrieve data for the specific match and lineups
+    df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
+    lineup_data = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
+    
+    # Get the opponent name based on the match lineup data
+    team_data = lineup_data[team]
+    opponent = [t for t in lineup_data.keys() if t != team][0]  # Find the other team name
+    
+    # Define teammates as players in the same team as `player`
+    teammates = team_data["player_name"].tolist()  # List of names of players on the selected team
+    
+    # Filter `df` to include:
+    # - Only passes by the selected player
+    # - Only successful passes (pass_outcome is None)
+    # - Passes where the recipient is a teammate
+    df_passes = df[
+        (df["team"] == team) &  # Make sure this is the correct team column in the data
+        (df["player.name"] == player) &  # Ensure this is how player names are stored in your df
+        (df["type.name"] == "Pass") &  # Ensure the "type" field is being referenced correctly
+        (df["pass.outcome.name"].isna())  # Successful passes only (no outcome)
     ]
     
-    # Group passes by recipient and count
+    # Filter out passes where the recipient is not a teammate
+    df_passes = df_passes[df_passes["pass.recipient.name"].isin(teammates)]
+    
+    # Group by pass recipient and count the number of passes for each
     pass_matrix = df_passes.groupby("pass.recipient.name").size().reset_index(name='count')
     pass_matrix = pass_matrix.sort_values(by="count", ascending=True)
     
@@ -404,8 +415,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
         cmap=cmap,
         cbar=False,
         xticklabels=recipient_names,
-        yticklabels=[''],
-        ax=ax_pass_matrix,
+        yticklabels=['Completed'],
         annot_kws={"size": 18, "color": "white", "weight": "bold"}
     )
     
@@ -419,116 +429,117 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     for label in ax_pass_matrix.get_xticklabels():
         label.set_ha('right')  # Align to the right
         label.set_position((label.get_position()[0] + 0.5, label.get_position()[1]))  # Adjust position slightly
-    
+
     ax_pass_matrix.set_aspect(aspect="auto")  # Adjust aspect ratio if needed
     plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])  # Constrain layout to leave margins
+ 
+# ********* Plot 7: High-Speed Running *********
 
-    # ********* Plot 7: High-Speed Running *********
+# Map StatsBomb match and player IDs to Wyscout IDs
+wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id']
+wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id']
+
+# Ensure the IDs exist and extract their values
+if not wyscout_match_id.empty and not wyscout_player_id.empty:
+    wyscout_match_id = wyscout_match_id.values[0]
+    wyscout_player_id = wyscout_player_id.values[0]
+else:
+    st.error("Unable to find Wyscout IDs for the selected match and player. Check your mappings.")
     
-    # Map StatsBomb match and player IDs to Wyscout IDs
-    wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id']
-    wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id']
-    
-    # Ensure the IDs exist and extract their values
-    if not wyscout_match_id.empty and not wyscout_player_id.empty:
-        wyscout_match_id = wyscout_match_id.values[0]
-        wyscout_player_id = wyscout_player_id.values[0]
-    else:
-        st.error("Unable to find Wyscout IDs for the selected match and player. Check your mappings.")
-        
-    ax_hsr = fig.add_subplot(gs[3, 0])
-    
-    # Metrics of interest and colors
-    metrics_of_interest = {
-        "High Speed Running (HSR) Distance": "#669bbc",
-        "Sprinting Distance": "#1b263b",
-        "High Intensity (HI) Distance": "#9e2a2b",
-    }
-    
-    # Hardcoded x-axis phases
-    hardcoded_phases = ["1'-15'", "16'-30'", "31'-45+'", "46'-60'", "61'-75'", "76'-120+'"]
-    
-    # Initialize metric data
-    metric_data = {metric: {phase: 0 for phase in hardcoded_phases} for metric in metrics_of_interest}
-    
-    # Filter and map Wyscout data
-    filtered_wyscout_data = [
-        entry for entry in wyscout_data
-        if entry['matchId'] == str(wyscout_match_id) and entry['playerid'] == str(wyscout_player_id)
-    ]
-    for metric, color in metrics_of_interest.items():
-        for entry in filtered_wyscout_data:
-            if entry['metric'] == metric and entry['phase'] in hardcoded_phases:
-                metric_data[metric][entry['phase']] = float(entry['value'])
-    
-    # Truncate phases based on player minutes
-    filtered_phases = [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
-    metric_data = {metric: {phase: metric_data[metric][phase] for phase in filtered_phases} for metric in metrics_of_interest}
-    
-    # Plot metrics
-    for metric, color in metrics_of_interest.items():
-        phases = filtered_phases
-        values = [metric_data[metric][phase] for phase in phases]
-        ax_hsr.plot(phases, values, marker='o', label=metric, color=color)
-    
-    # Format the plot
-    ax_hsr.set_xticks(range(len(filtered_phases)))
-    ax_hsr.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
-    ax_hsr.set_yticks(range(0, 251, 50))  # Adjust as needed
-    ax_hsr.set_title("", fontsize=16, pad=20)
-    ax_hsr.set_xlabel("", fontsize=12)
-    ax_hsr.set_ylabel("Distance (m)", fontsize=12)
-    ax_hsr.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=1, fontsize=10, frameon=False)
-    ax_hsr.grid(alpha=0.5)
-    ax_hsr.spines['top'].set_visible(False)
-    ax_hsr.spines['right'].set_visible(False)
-    
-    # ********* Plot 8: Max Speed Bar Chart *********
-    ax_max_speed = fig.add_subplot(gs[3, 1])
-    
-    # Initialize bar data
-    bar_data = {phase: 0 for phase in hardcoded_phases}
-    
-    # Populate bar data with Max Speed metric
-    for entry in filtered_wyscout_data:
-        if entry['metric'] == "Max Speed" and entry['phase'] in hardcoded_phases:
-            bar_data[entry['phase']] = float(entry['value'])
-    
-    # Adjust bar data for filtered phases
-    bar_data = {phase: bar_data[phase] for phase in filtered_phases}
-    
-    # Prepare data for the bar chart
-    values = [bar_data[phase] for phase in filtered_phases]
-    
-    # Plot the bar chart
-    if values:  # Check if there is data to plot
-        bars = ax_max_speed.bar(filtered_phases, values, color="#003049", edgecolor="black")
-        for bar, value in zip(bars, values):
-            ax_max_speed.text(
-                bar.get_x() + bar.get_width() / 2,  # Center of the bar
-                bar.get_height() - 0.5,  # Slightly below the top of the bar
-                f"{value:.1f}",  # Label text (formatted to 1 decimal place)
-                ha="center",  # Horizontal alignment
-                va="top",  # Vertical alignment
-                color="white",  # Label color
-                fontsize=12,  # Font size
-                weight="bold"  # Bold text
-            )
-    else:
+ax_hsr = fig.add_subplot(gs[3, 0])
+
+# Metrics of interest and colors
+metrics_of_interest = {
+    "High Speed Running (HSR) Distance": "#669bbc",
+    "Sprinting Distance": "#1b263b",
+    "High Intensity (HI) Distance": "#9e2a2b",
+}
+
+# Hardcoded x-axis phases
+hardcoded_phases = ["1'-15'", "16'-30'", "31'-45+'", "46'-60'", "61'-75'", "76'-120+'"]
+
+# Initialize metric data
+metric_data = {metric: {phase: 0 for phase in hardcoded_phases} for metric in metrics_of_interest}
+
+# Filter and map Wyscout data from CSV
+filtered_wyscout_data = wyscout_physical_data[
+    (wyscout_physical_data['matchId'] == str(wyscout_match_id)) & 
+    (wyscout_physical_data['playerid'] == str(wyscout_player_id))
+]
+
+# Fill metric data with values from filtered data
+for metric, color in metrics_of_interest.items():
+    for _, entry in filtered_wyscout_data.iterrows():
+        if entry['metric'] == metric and entry['phase'] in hardcoded_phases:
+            metric_data[metric][entry['phase']] = float(entry['value'])
+
+# Truncate phases based on player minutes
+filtered_phases = [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
+metric_data = {metric: {phase: metric_data[metric][phase] for phase in filtered_phases} for metric in metrics_of_interest}
+
+# Plot metrics
+for metric, color in metrics_of_interest.items():
+    phases = filtered_phases
+    values = [metric_data[metric][phase] for phase in phases]
+    ax_hsr.plot(phases, values, marker='o', label=metric, color=color)
+
+# Format the plot
+ax_hsr.set_xticks(range(len(filtered_phases)))
+ax_hsr.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
+ax_hsr.set_yticks(range(0, 251, 50))  # Adjust as needed
+ax_hsr.set_title("", fontsize=16, pad=20)
+ax_hsr.set_xlabel("", fontsize=12)
+ax_hsr.set_ylabel("Distance (m)", fontsize=12)
+ax_hsr.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=1, fontsize=10, frameon=False)
+ax_hsr.grid(alpha=0.5)
+ax_hsr.spines['top'].set_visible(False)
+ax_hsr.spines['right'].set_visible(False)
+
+# ********* Plot 8: Max Speed Bar Chart *********
+ax_max_speed = fig.add_subplot(gs[3, 1])
+
+# Initialize bar data
+bar_data = {phase: 0 for phase in hardcoded_phases}
+
+# Populate bar data with Max Speed metric
+for _, entry in filtered_wyscout_data.iterrows():
+    if entry['metric'] == "Max Speed" and entry['phase'] in hardcoded_phases:
+        bar_data[entry['phase']] = float(entry['value'])
+
+# Adjust bar data for filtered phases
+bar_data = {phase: bar_data[phase] for phase in filtered_phases}
+
+# Prepare data for the bar chart
+values = [bar_data[phase] for phase in filtered_phases]
+
+# Plot the bar chart
+if values:  # Check if there is data to plot
+    bars = ax_max_speed.bar(filtered_phases, values, color="#003049", edgecolor="black")
+    for bar, value in zip(bars, values):
         ax_max_speed.text(
-            0.5, 0.5, "No Max Speed Data Available", ha="center", va="center",
-            fontsize=16, color="gray", transform=ax_max_speed.transAxes
+            bar.get_x() + bar.get_width() / 2,  # Center of the bar
+            bar.get_height() - 0.5,  # Slightly below the top of the bar
+            f"{value:.1f}",  # Label text (formatted to 1 decimal place)
+            ha="center",  # Horizontal alignment
+            va="top",  # Vertical alignment
+            color="white",  # Label color
+            fontsize=12,  # Font size
+            weight="bold"  # Bold text
         )
-    
-    
-    # Format the chart
-    ax_max_speed.set_title("", fontsize=16, pad=20)
-    ax_max_speed.set_xticks(range(len(filtered_phases)))
-    ax_max_speed.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
-    ax_max_speed.set_ylabel("Max Speed (km/h)", fontsize=12)  # Adjust as needed
-    ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
-    ax_max_speed.spines['top'].set_visible(False)
-    ax_max_speed.spines['right'].set_visible(False)
+else:
+    ax_max_speed.text(
+        0.5, 0.5, "No Max Speed Data Available", ha="center", va="center",
+        fontsize=16, color="gray", transform=ax_max_speed.transAxes
+    )
+
+# Format the chart
+ax_max_speed.set_title("", fontsize=16, pad=20)
+ax_max_speed.set_xticks(range(len(filtered_phases)))
+ax_max_speed.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
+ax_max_speed.set_ylabel("Max Speed (km/h)", fontsize=12)  # Adjust as needed
+ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
+ax_max_speed.spines['top'].set_visible(False)
+ax_max_speed.spines['right'].set_visible(False)
     
     fig_text(
         s=f"<{player}> \nvs <{opponent}> | Mins played: {player_minutes:.2f}",
