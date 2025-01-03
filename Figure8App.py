@@ -225,7 +225,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
             frameon=False,
             ncol=2
         )
-        for legend_handle in legend.legendHandles:
+        for legend_handle in legend.legend_handles:
             legend_handle._sizes = [100]  # Adjust legend marker size
     
         # Add the title
