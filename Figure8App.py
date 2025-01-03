@@ -122,20 +122,6 @@ def load_data():
 # Load the data
 consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
 
-# Display the first few rows of the physical data to verify the loading
-if wyscout_physical_data is not None:
-    st.write("First few entries of wyscout_physical_data.json:", wyscout_physical_data.head())
-
-# Once we load data, you can verify:
-consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
-
-# Check if consolidated_matches is properly loaded
-if consolidated_matches is None:
-    st.write("Error: 'consolidated_matches' could not be loaded.")
-else:
-    st.write("Columns in consolidated_matches:", consolidated_matches.columns)
-    st.write("First few rows of consolidated_matches:", consolidated_matches.head())
-
 def filter_events(events_df):
     events_df = events_df[events_df["type"].isin([
         "Pass", "Dribble", "Carry", "Ball Receipt", "Block", "Interception", "Shot"
@@ -559,12 +545,17 @@ player_select_key = f"player_select"
 
 home_team = st.sidebar.selectbox("Select Home Team", consolidated_matches['home_team'].unique(), key=home_team_key)
 away_team = st.sidebar.selectbox("Select Away Team", consolidated_matches['away_team'].unique(), key=away_team_key)
+
+# Ensure match_info is found
 match_info = consolidated_matches[(consolidated_matches['home_team'] == home_team) & (consolidated_matches['away_team'] == away_team)]
 
 if match_info.empty:
     st.error("No match found for the selected teams.")
 else:
+    # Now match_id is correctly assigned
     match_id = match_info['statsbomb_id'].values[0]
+    
+    # Fetch events for the selected match
     sb_events = fetch_events_from_statsbomb(match_id)  # Fetch events using statsbombpy
     
     if sb_events.empty:
