@@ -24,32 +24,49 @@ warnings.filterwarnings('ignore')
 
 
 
-BASE_URL = "https://drive.google.com/uc?id="
-
-# File IDs for Google Drive
+base_url = "https://drive.google.com/uc?id="
 file_ids = {
     "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
     "player_mapping_with_names": "1usGHXxhA5jX4u-H2lua0LyRvBljA1BIG",
     "mapping_matches": "1_Xqdfo69QfuV5aHHNw6omG_bZIU9xAcb",
     "mapping_players": "1jxZ9OzY376i2ac71Vxuyoke1pDa6PEHY",
-    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",  # Your JSON file ID
+    "wyscout_physical_data": "1fqrtT1zqtFWBA8eYvIPSurUAvNhQGGXd",  # The large JSON file
     "player_stats": "1oExf9zGs-E-pu-Q0H9Eyo7-eqXue8e1Z",
 }
 
 def download_file_from_drive(file_id, destination_file_name):
     """Download a file from Google Drive using its ID."""
-    url = f"https://drive.google.com/uc?id={file_id}&export=download"
+    url = f"{base_url}{file_id}&export=download"
     response = requests.get(url)
     
     if response.status_code == 200:
         with open(destination_file_name, 'wb') as f:
             f.write(response.content)
-        print(f"Downloaded {destination_file_name} from Google Drive.")
-        return destination_file_name
+        st.write(f"Downloaded {destination_file_name} from Google Drive.")
     else:
-        print(f"Failed to download file from Google Drive. Status code: {response.status_code}")
+        st.write(f"Failed to download file from Google Drive. Status code: {response.status_code}")
+        return None
+    return destination_file_name
+
+def load_json_file_in_chunks(file_name, chunk_size=10000):
+    """Load a large JSON file in chunks."""
+    try:
+        # Create an empty list to hold the chunks
+        chunk_list = []
+        
+        # Read JSON file in chunks
+        for chunk in pd.read_json(file_name, lines=True, chunksize=chunk_size):
+            chunk_list.append(chunk)  # Append each chunk to the list
+
+        # Combine all chunks into one DataFrame
+        full_df = pd.concat(chunk_list, ignore_index=True)
+        st.write("Loaded full DataFrame in chunks.")
+        return full_df
+    except Exception as e:
+        st.write(f"Error reading JSON file in chunks: {e}")
         return None
 
+@st.cache_data
 def load_data():
     # Initialize variables
     consolidated_matches = None
@@ -58,41 +75,39 @@ def load_data():
     player_stats = None
     wyscout_physical_data = None
 
+    # Download each file from Google Drive
     for key, file_id in file_ids.items():
-        file_name = f"{key}.csv" if key not in ["player_stats", "wyscout_physical_data"] else f"{key}.json"
-        downloaded_file = download_file_from_drive(file_id, file_name)
+        file_name = f"{key}.csv" if key not in ["wyscout_physical_data", "player_stats"] else f"{key}.json"
         
-        if downloaded_file:
-            st.write(f"File {file_name} downloaded successfully.")
-            
-            if file_name.endswith('.csv'):
-                # Check if the file is readable and display contents
-                try:
-                    temp_df = pd.read_csv(file_name)
-                    st.write(f"First few rows of {file_name}:", temp_df.head())
-                    if key == "consolidated_matches":
-                        consolidated_matches = temp_df
-                    elif key == "player_mapping_with_names":
-                        player_mapping_with_names = temp_df
-                except Exception as e:
-                    st.write(f"Error reading {file_name}: {e}")
-                    
-            elif file_name.endswith('.json'):
-                # Similar checks for JSON files
-                try:
-                    with open(file_name, 'r') as f:
-                        data = json.load(f)
-                    st.write(f"First few entries of {file_name}:", data[:5] if isinstance(data, list) else data)
-                    if key == "wyscout_physical_data":
-                        wyscout_physical_data = data
-                    elif key == "player_stats":
-                        player_stats = data
-                except Exception as e:
-                    st.write(f"Error reading {file_name}: {e}")
-        else:
-            st.write(f"Failed to download {file_name}")
-    
+        # Download the file from Google Drive
+        download_file_from_drive(file_id, file_name)
+
+        # Handle CSV files
+        if file_name.endswith('.csv'):
+            if key == "consolidated_matches":
+                consolidated_matches = pd.read_csv(file_name)
+            elif key == "player_mapping_with_names":
+                player_mapping_with_names = pd.read_csv(file_name)
+            elif key == "mapping_matches":
+                mapping_matches = pd.read_csv(file_name)
+            elif key == "mapping_players":
+                mapping_players = pd.read_csv(file_name)
+
+        # Handle JSON files
+        elif file_name.endswith('.json'):
+            if key == "wyscout_physical_data":
+                wyscout_physical_data = load_json_file_in_chunks(file_name)
+            elif key == "player_stats":
+                player_stats = load_json_file(file_name)
+
     return consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data
+
+# Load the data
+consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
+
+# Display the first few rows of the physical data to verify the loading
+if wyscout_physical_data is not None:
+    st.write("First few entries of wyscout_physical_data.json:", wyscout_physical_data.head())
 
 # Once we load data, you can verify:
 consolidated_matches, player_mapping_with_names, sb_events, player_stats, wyscout_physical_data = load_data()
