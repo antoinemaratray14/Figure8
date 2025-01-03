@@ -77,6 +77,16 @@ def load_json_file_in_chunks(file_name, chunk_size=10000):
         st.write(f"Error reading JSON file in chunks: {e}")
         return None
 
+def fetch_events_from_statsbomb(match_id):
+    """Fetch events for a given match using statsbombpy."""
+    try:
+        # Using statsbombpy to fetch events
+        events_df = sb.events(match_id=match_id)
+        return events_df
+    except Exception as e:
+        st.write(f"Error fetching events: {e}")
+        return pd.DataFrame()
+
 @st.cache_data
 def load_data():
     # Initialize variables
