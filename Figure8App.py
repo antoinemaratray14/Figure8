@@ -78,10 +78,13 @@ def load_json_file_in_chunks(file_name, chunk_size=10000):
         return None
 
 def fetch_events_from_statsbomb(match_id):
-    """Fetch events for a given match using statsbombpy."""
+    """Fetch events for a given match from StatsBomb using statsbombpy."""
+    username = "admin@figure8.com"  # Your StatsBomb username
+    password = "QCOKgqp1"  # Your StatsBomb password
+
     try:
-        # Using statsbombpy to fetch events
-        events_df = sb.events(match_id=match_id)
+        # Using statsbombpy to fetch events with credentials
+        events_df = sb.events(match_id=match_id, creds={"user": username, "passwd": password})
         return events_df
     except Exception as e:
         st.write(f"Error fetching events: {e}")
