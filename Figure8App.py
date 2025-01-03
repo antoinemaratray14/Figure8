@@ -22,8 +22,6 @@ from requests.auth import HTTPBasicAuth
 import os
 warnings.filterwarnings('ignore')
 
-
-
 base_url = "https://drive.google.com/uc?id="
 file_ids = {
     "consolidated_matches": "11F6TzXOTe2SgwYCiA2vooWs_6luGSY5w",
@@ -47,6 +45,19 @@ def download_file_from_drive(file_id, destination_file_name):
         st.write(f"Failed to download file from Google Drive. Status code: {response.status_code}")
         return None
     return destination_file_name
+
+def load_json_file(file_name):
+    """Load a JSON file."""
+    try:
+        with open(file_name, "r") as f:
+            data = json.load(f)
+        return data
+    except json.JSONDecodeError as e:
+        st.write(f"Error decoding JSON from {file_name}: {e}")
+        return None
+    except Exception as e:
+        st.write(f"Error reading file {file_name}: {e}")
+        return None
 
 def load_json_file_in_chunks(file_name, chunk_size=10000):
     """Load a large JSON file in chunks."""
