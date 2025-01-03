@@ -541,11 +541,10 @@ ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
 ax_max_speed.spines['top'].set_visible(False)
 ax_max_speed.spines['right'].set_visible(False)
     
-    fig_text(
+fig_text(
         s=f"<{player}> \nvs <{opponent}> | Mins played: {player_minutes:.2f}",
         x=0.150, y=0.975, fontsize=30, 
-        highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}]
-    )
+        highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}])
 
     return fig
 
