@@ -532,21 +532,22 @@ else:
         fontsize=16, color="gray", transform=ax_max_speed.transAxes
     )
 
-# Format the chart
-ax_max_speed.set_title("", fontsize=16, pad=20)
-ax_max_speed.set_xticks(range(len(filtered_phases)))
-ax_max_speed.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
-ax_max_speed.set_ylabel("Max Speed (km/h)", fontsize=12)  # Adjust as needed
-ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
-ax_max_speed.spines['top'].set_visible(False)
-ax_max_speed.spines['right'].set_visible(False)
-    
-fig_text(
+    # Format the chart
+    ax_max_speed.set_title("", fontsize=16, pad=20)
+    ax_max_speed.set_xticks(range(len(filtered_phases)))
+    ax_max_speed.set_xticklabels(filtered_phases, rotation=45, fontsize=10)
+    ax_max_speed.set_ylabel("Max Speed (km/h)", fontsize=12)  # Adjust as needed
+    ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
+    ax_max_speed.spines['top'].set_visible(False)
+    ax_max_speed.spines['right'].set_visible(False)
+
+    fig_text(
         s=f"<{player}> \nvs <{opponent}> | Mins played: {player_minutes:.2f}",
         x=0.150, y=0.975, fontsize=30, 
-        highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}])
+        highlight_textprops=[{"fontweight": "bold"}, {"color": game_color, "fontweight": "bold"}]
+    )
 
-return fig
+    return fig
 
 st.title("Figure 8: Post-Match Dashboard")
 
