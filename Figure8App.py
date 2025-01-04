@@ -56,7 +56,7 @@ def get_events_from_statsbomb(match_id):
     return events_df
 
 
-def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes):
+def generate_full_visualization(filtered_events, events_df, season_stats, match_id, player, wyscout_data, opponent, player_minutes, team):
     # Ensure valid locations in filtered events
     filtered_events = filtered_events[
         filtered_events['location'].apply(lambda loc: isinstance(loc, list) and len(loc) == 2)
@@ -362,20 +362,16 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     # Retrieve lineup data
     lineup_data = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
     
-    # Dynamically identify the selected team (it could be either home or away)
-    selected_team = home_team if team == home_team else away_team
-    
     # Get team data and opponent name
-    team_data = lineup_data[selected_team]
-    opponent = [t for t in lineup_data.keys() if t != selected_team][0]
+    team_data = lineup_data[team]  # Use the passed `team` parameter
+    opponent = [t for t in lineup_data.keys() if t != team][0]
     
     # Get the list of teammates for the selected team
     teammates = team_data["player_name"].tolist()
-
     
     # Filter events for passes made by the selected player to teammates
     df_passes = events_df[
-        (events_df["team"] == selected_team) &  # Focus on the selected home team
+        (events_df["team"] == team) &  # Focus on the selected home team
         (events_df["player"] == player) &  # Filter for the selected player
         (events_df["type"] == "Pass") &  # Only passes
         (events_df["pass_outcome"].isna()) &  # Only successful passes
@@ -594,6 +590,7 @@ else:
                 player,
                 wyscout_physical_data,
                 opponent,
-                player_minutes
+                player_minutes,
+                team
             )
             st.pyplot(fig)
