@@ -359,17 +359,19 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     color4, color3, color2, color1 = '#0d1b2a', '#1b263b', '#415a77', '#778da9'
     cmap = LinearSegmentedColormap.from_list("custom_blue_gradient", [color1, color2, color3, color4])
     
-    # Retrieve data for the specific match and lineups
+    # Retrieve lineup data
     lineup_data = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
     
-    # Get the team data for the focus team and opponent
-    team_data = lineup_data[home_team]
-    opponent = [t for t in lineup_data.keys() if t != home_team][0]  # Find the opponent's name
+    # Dynamically identify the selected team (it could be either home or away)
+    selected_team = home_team if team == home_team else away_team
+    
+    # Get team data and opponent name
+    team_data = lineup_data[selected_team]
+    opponent = [t for t in lineup_data.keys() if t != selected_team][0]
     
     # Get the list of teammates for the selected team
     teammates = team_data["player_name"].tolist()
 
-    selected_team = home_team if team == home_team else away_team
     
     # Filter events for passes made by the selected player to teammates
     df_passes = events_df[
