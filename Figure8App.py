@@ -363,11 +363,19 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     lineup_data = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
     
     # Get the team data for the focus team and opponent
-    team_data = lineup_data[home_team] if player in lineup_data[home_team]["player_name"].values else lineup_data[away_team]
-    opponent = [t for t in lineup_data.keys() if t != team_data][0]  # Find the opponent's name
+    if player in lineup_data[home_team]["player_name"].values:
+        team_data = lineup_data[home_team]
+        team_name = home_team
+    else:
+        team_data = lineup_data[away_team]
+        team_name = away_team
+    
+    # Get the opponent's name
+    opponent = home_team if team_name == away_team else away_team
     
     # Get the list of teammates for the selected team
     teammates = team_data["player_name"].tolist()
+
     
     # Filter events for passes made by the selected player to teammates
     df_passes = events_df[
