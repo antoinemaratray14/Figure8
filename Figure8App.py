@@ -36,7 +36,7 @@ def load_data():
     }
 
     import requests_cache
-    requests_cache.install_cache("gdown_cache", backend="sqlite", expire_after=3600)
+    requests_cache.install_cache("gdown_cache", backend="sqlite", expire_after=3600,backend_options={"timeout": 10})
     # Download datasets
     consolidated_matches = pd.read_csv(gdown.download(base_url + file_ids["consolidated_matches"], quiet=False))
     player_mapping_with_names = pd.read_csv(gdown.download(base_url + file_ids["player_mapping_with_names"], quiet=False))
@@ -46,8 +46,6 @@ def load_data():
     player_stats_json = gdown.download(base_url + file_ids["player_stats"], quiet=False)
     with open(player_stats_json, 'r') as f:
         player_stats = pd.DataFrame(json.load(f))
-
-
 
     return consolidated_matches, player_mapping_with_names, player_stats, wyscout_physical_data
 consolidated_matches, player_mapping_with_names, player_stats, wyscout_physical_data = load_data()
