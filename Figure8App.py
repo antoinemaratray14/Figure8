@@ -364,7 +364,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     
     # Get the team data for the focus team and opponent
     team_data = lineup_data[home_team] if player in lineup_data[home_team]["player_name"].values else lineup_data[away_team]
-    opponent = [t for t in lineup_data.keys() if t != home_team][0]  # Find the opponent's name
+    opponent = [t for t in lineup_data.keys() if t != team_data][0]  # Find the opponent's name
     
     # Get the list of teammates for the selected team
     teammates = team_data["player_name"].tolist()
