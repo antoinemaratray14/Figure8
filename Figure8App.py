@@ -368,10 +368,12 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     
     # Get the list of teammates for the selected team
     teammates = team_data["player_name"].tolist()
+
+    selected_team = home_team if team == home_team else away_team
     
     # Filter events for passes made by the selected player to teammates
     df_passes = events_df[
-        (events_df["team"] == home_team) &  # Focus on the selected home team
+        (events_df["team"] == selected_team) &  # Focus on the selected home team
         (events_df["player"] == player) &  # Filter for the selected player
         (events_df["type"] == "Pass") &  # Only passes
         (events_df["pass_outcome"].isna()) &  # Only successful passes
