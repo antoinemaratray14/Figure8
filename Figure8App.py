@@ -233,6 +233,10 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
         
         # ********* Plot 5: Benchmarking - Match vs Season *********
+    alternate_names = {
+    "Anderson José Lopes de Souza": "Anderson Lopes"
+    }    
+        
     # Define colors
     game_color = "#034694"
     bgcolor = "white"
@@ -253,6 +257,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
         'Crossing Ratio', 'Dribbles', 'xA', 'NP Shots', 'xG'
     ]
     
+    mapped_player = alternate_names.get(player, player)
     # Calculate total minutes played by each player
     season_stats['player_total_minutes'] = season_stats.groupby('player_name')['player_match_minutes'].transform('sum')
     
@@ -261,7 +266,7 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     league_stats = season_stats[season_stats['player_total_minutes'] > minutes_threshold]
     
     # Filter the selected player's matches
-    player_matches = season_stats[season_stats['player_name'] == player]
+    player_matches = season_stats[season_stats['player_name'] == mapped_player]
     player_match = player_matches[player_matches['match_id'] == match_id]
     if player_match.empty:
         raise ValueError(f"No data found for player {player} in match {match_id}")
