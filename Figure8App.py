@@ -233,11 +233,59 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 
         
         # ********* Plot 5: Benchmarking - Match vs Season *********
+        # ********* Plot 5: Benchmarking - Match vs Season *********
     alternate_names = {
     "Anderson José Lopes de Souza": "Anderson Lopes",
+    "Anderson Patric Aguiar Oliveira": "Patric",
+    "Bruno José de Souza": "Bruno José",
+    "Carlos Eduardo Bendini Giusti": "Eduardo",
+    "Danilo Gomes Magalhães": "Danilo Gomes",
     "Dawhan Fran Urano Da Purificação Oliveira": "Dawhan",
-    "José Elber Pimentel da Silva": "Élber"
-    }    
+    "Diego Jara Rodrigues": "",
+    "Diego Queiroz de Oliveira": "Diego Oliveira",
+    "Douglas da Silva Vieira": "Douglas Vieira",
+    "Douglas Ricardo Grolli": "Douglas Grolli",
+    "Erik Nasciment de Lima": "Erik",
+    "Erison Danilo de Souza": "",
+    "Everton Galdino Moreira": "",
+    "Ezequiel Santos da Silva": "Ezequiel",
+    "Guilherme Parede Pinheiro": "Guilherme Parede",
+    "Henrique de Souza Trevisan": "Henrique Trevisan",
+    "Jandir Breno Souza Silva": "Jajá",
+    "Jean Patric Lima dos Reis": "Jean Patric",
+    "Jesiel Cardoso Miranda": "Jesiel",
+    "João Victor da Vitória Fernandes": "Capixaba",
+    "José Elber Pimentel da Silva": "Élber",
+    "José Ricardo Araújo Fernandes": "Zé Ricardo",
+    "Juan Matheus Alano Nascimento": "Juan Alano",
+    "Leonardo da Silva Gomes": "Léo Gomes",
+    "Leonardo de Sousa Pereira": "Léo Ceará",
+    "Lucas da Cruz Oliveira": "Oliveira",
+    "Lucas Fernandes": "",
+    "Luiz Phellype Luciano Silva": "Luiz Phellype",
+    "Lukian Araújo de Almeida": "",
+    "Marcelo Ryan Silvestre dos Santos": "Marcelo Ryan",
+    "Márcio Augusto da Silva Barbosa": "Marcinho",
+    "Marcos Junio Lima dos Santos": "Marcos Junior",
+    "Marco Túlio Oliveira Lemos": "Marco Túlio",
+    "Matheus Caldeira Vidotto de Oliveira": "Matheus Vidotto",
+    "Matheus Gonçalves Sávio": "Matheus Sávio",
+    "Matheus Soares Thuler": "Thuler",
+    "Matheus Vieira Campos Peixoto": "Matheus Peixoto",
+    "Murilo De Souza Costa": "Murilo de Souza",
+    "Patrick Verhon Pertel Pereira": "Patrick Verhon",
+    "Rafael Elias da Silva": "Papagaio",
+    "Ricardo Queiroz de Alencastro Graça": "Ricardo Graça",
+    "Talles Brener de Paula": "",
+    "Thiago Santos Santana": "Thiago Santana",
+    "Vinícius Vasconcelos Araújo": "Vinícius Araújo",
+    "Vitor Frezarin Bueno": "Vitor Bueno",
+    "Wellington Luis de Sousa": "",
+    "Welton Felipe Paragua de Melo": "Welton Felipe",
+    "Weverton de Sousa Santos": "",
+    "Yan Matheus Santos Souza": "Yan",
+    "Mitchell Thomas Duke": "Mitchell Duke",
+    }   
         
     # Define colors
     game_color = "#034694"
@@ -435,25 +483,18 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
 # ********* Plot 7: High-Speed Running *********
 
     # Map StatsBomb match and player IDs to Wyscout IDs
-    wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id']
-    wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id']
+    wyscout_match_id = consolidated_matches.loc[consolidated_matches['statsbomb_id'] == match_id, 'wyscout_id'].values[0]
+    wyscout_player_id = player_mapping_with_names.loc[player_mapping_with_names['player_name'] == player, 'wyscout_id'].values[0]
     
-    # Ensure the IDs exist and extract their values
-    if not wyscout_match_id.empty and not wyscout_player_id.empty:
-        wyscout_match_id = wyscout_match_id.values[0]
-        wyscout_player_id = wyscout_player_id.values[0]
-    else:
-        st.error("Unable to find Wyscout IDs for the selected match and player. Check your mappings.")
-        st.stop()
-    
-    # Filter Wyscout data for the selected match and player
+    # Filter Wyscout data for the selected match and player using playerid and matchId
     filtered_wyscout_data = wyscout_physical_data[
-        (wyscout_physical_data['matchId'] == wyscout_match_id) & (wyscout_physical_data['playerid'] == wyscout_player_id)
+        (wyscout_physical_data['playerid'] == wyscout_player_id) &
+        (wyscout_physical_data['matchId'] == wyscout_match_id)
     ]
     
     # Ensure there is data for the match and player
     if filtered_wyscout_data.empty:
-        st.error("No Wyscout data available for the selected player and match.")
+        st.error(f"No Wyscout physical data available for player {player} in match {match_id}.")
         st.stop()
     
     ax_hsr = fig.add_subplot(gs[3, 0])
@@ -479,8 +520,11 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
                 metric_data[metric][row['phase']] = row['value']
     
     # Truncate phases based on player minutes
-    filtered_phases = [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
-    metric_data = {metric: {phase: metric_data[metric][phase] for phase in filtered_phases} for metric in metrics_of_interest}
+    filtered_phases = (
+        [phase for phase in hardcoded_phases if int(phase.split('-')[0][:-1]) <= player_minutes]
+        if player_minutes > 0
+        else hardcoded_phases  # Show all phases if player minutes is 0
+    )
     
     # Plot metrics
     for metric, color in metrics_of_interest.items():
@@ -499,8 +543,8 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     ax_hsr.grid(alpha=0.5)
     ax_hsr.spines['top'].set_visible(False)
     ax_hsr.spines['right'].set_visible(False)
-    
-    # ********* Plot 8: Max Speed Bar Chart *********
+
+# ********* Plot 8: Max Speed Bar Chart *********
     ax_max_speed = fig.add_subplot(gs[3, 1])
     
     # Initialize bar data
@@ -546,6 +590,13 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
     ax_max_speed.grid(axis="y", linestyle="--", alpha=0.7)
     ax_max_speed.spines['top'].set_visible(False)
     ax_max_speed.spines['right'].set_visible(False)
+    
+    # Update `fig_text` with player minutes adjustment
+    mapped_player = alternate_names.get(player, player)    
+    player_minutes = player_stats.loc[
+        (player_stats['player_name'] == mapped_player) & (player_stats['match_id'] == match_id),
+        'player_match_minutes'
+    ].sum()
     
     fig_text(
         s=f"<{player}> \nvs <{opponent}> | Mins played: {player_minutes:.2f}",
