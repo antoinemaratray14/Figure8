@@ -627,7 +627,7 @@ else:
     players = events_df['player'].unique()  # Get unique player names from events
     player = st.sidebar.selectbox("Select Player (Start Typing Name)", players)
 
-    if st.button("Generate Visualization"):
+    if st.button("Generate Visualisation"):
         with st.spinner("Generating plots..."):
             # Get opponent details
             lineups = sb.lineups(match_id=match_id, creds={"user": username, "passwd": password})
