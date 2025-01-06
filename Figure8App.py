@@ -234,7 +234,9 @@ def generate_full_visualization(filtered_events, events_df, season_stats, match_
         
         # ********* Plot 5: Benchmarking - Match vs Season *********
     alternate_names = {
-    "Anderson José Lopes de Souza": "Anderson Lopes"
+    "Anderson José Lopes de Souza": "Anderson Lopes",
+    "Dawhan Fran Urano Da Purificação Oliveira": "Dawhan",
+    "José Elber Pimentel da Silva": "Élber"
     }    
         
     # Define colors
